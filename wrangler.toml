@@ -1,4 +1,4 @@
-name = "provagouapp"
+name = "poralvagouapp"
 compatibility_date = "2024-09-23"
 
 # Cloudflare Workers with Static Assets (SPA)
