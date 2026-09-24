@@ -1,0 +1,11 @@
+{
+  "name": "Portal VagouAPP",
+  "description": "Aplicativo Portl de descoberta e anuncios de agendamento de vagas e horários imediatos em salões de beleza, barbearias e estética com visualização de mapa, ofertas e confirmação.",
+  "requestFramePermissions": [
+    "geolocation",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
