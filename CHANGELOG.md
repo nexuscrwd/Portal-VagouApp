@@ -15,6 +15,30 @@ Este arquivo registra cronologicamente todas as modificações relevantes realiz
 
 ## 📜 Registros de Alterações
 
+### [2026-09-24] — Persistência Imediata dos Dados do Responsável (Etapa 1) e CPF Opcional
+- **Tipo:** `[Feat / Database Sync / Lead Capture / UX]`
+- **Motivo:** Garantir a captura e persistência instantânea dos dados mais valiosos (Nome, E-mail, Senha e CPF opcional) logo ao clicar em "Continuar" na Etapa 1, criando o usuário no Supabase Auth e registrando preliminarmente na tabela `salons` sem perda de leads; CPF passa a ser 100% opcional para reduzir atrito de conversão.
+- **Arquivos Impactados:**
+  - `src/services/supabaseApi.ts` (criação da função `saveOwnerPreliminaryDataToSupabase` e suporte a `existingSalonId` em `syncSalonDataToSupabase`)
+  - `src/portal-export/PartnerRegistrationWizard.tsx` (persistência assíncrona imediata no Step 1, CPF tornado opcional com validação não-bloqueante e botão com feedback visual "Salvando...")
+  - `CHANGELOG.md` (registro de rastreabilidade)
+
+### [2026-09-24] — Reordenação do Fluxo de Cadastro de Parceiros (Responsável primeiro, depois Estabelecimento)
+- **Tipo:** `[UX / Partner Registration / Flow Restructure]`
+- **Motivo:** Aprimoramento da jornada de onboarding do parceiro: agora a primeira etapa coleta os dados pessoais e credenciais de login do responsável legal (Nome, CPF, E-mail e Senha), seguida pela segunda etapa com os dados operacionais do estabelecimento (Nome Fantasia, WhatsApp, Endereço com busca de CEP), e terceira etapa com segmento, identidade visual e link exclusivo.
+- **Arquivos Impactados:**
+  - `src/portal-export/PartnerRegistrationWizard.tsx` (inversão das etapas 1 e 2, validações sequenciais e títulos explicativos)
+  - `CHANGELOG.md` (registro de rastreabilidade)
+
+### [2026-09-24] — Notificação Toast de Diagnóstico do Supabase na Inicialização
+- **Tipo:** `[Feat / Diagnostics / Supabase / UX / Health Check]`
+- **Motivo:** Implementação de toast diagnóstico automático ao abrir o app que testa em tempo real a inicialização do cliente Supabase, a resposta do banco de dados (latência em ms) e a existência de sessão de autenticação ativa, oferecendo feedback visual imediato ao usuário com botões de re-teste e fechamento.
+- **Arquivos Impactados:**
+  - `src/services/supabaseApi.ts` (criação da função `checkSupabaseHealth` e interface `SupabaseHealthStatus`)
+  - `src/components/SupabaseDiagnosticToast.tsx` (componente toast de diagnóstico com design system Vagou: Dark Slate + Emerald, regra estrita de contraste, ícones `lucide-react`, barra de progresso de auto-dismiss em 6s e botão de re-teste)
+  - `src/App.tsx` (renderização do `<SupabaseDiagnosticToast />` na montagem do app)
+  - `CHANGELOG.md` (registro de rastreabilidade)
+
 ### [2026-09-24] — Correção e Validação Estrita de Persistência no Banco Supabase (Auth, salons, professionals, service_offers)
 - **Tipo:** `[Fix / Database / Supabase Sync / Partner Registration]`
 - **Motivo:** Garantir que o formulário de cadastro de estabelecimentos grave efetivamente na tabela `salons` e no Supabase Auth sem mascaramento de erros, sincronizando também os profissionais e ofertas criados durante o onboarding nas tabelas `professionals` e `service_offers`.

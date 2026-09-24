@@ -24,7 +24,11 @@ import {
   Lock,
 } from 'lucide-react';
 import { SalonRegistrationPayload } from '../types';
-import { signUpWithSupabase, syncSalonDataToSupabase } from '../services/supabaseApi';
+import {
+  signUpWithSupabase,
+  syncSalonDataToSupabase,
+  saveOwnerPreliminaryDataToSupabase,
+} from '../services/supabaseApi';
 import { hapticLight, hapticSuccess } from '../utils/haptics';
 
 export interface PartnerRegistrationWizardProps {
@@ -46,7 +50,12 @@ export const PartnerRegistrationWizard: React.FC<PartnerRegistrationWizardProps>
 }) => {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingStep1, setIsSavingStep1] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Armazena IDs criados preliminarmente na Etapa 1 para sincronização posterior
+  const [registeredUserId, setRegisteredUserId] = useState<string | undefined>(undefined);
+  const [registeredSalonId, setRegisteredSalonId] = useState<string | undefined>(undefined);
 
   // Accessible IDs for inputs
   const fantasyNameId = useId();
@@ -176,31 +185,14 @@ export const PartnerRegistrationWizard: React.FC<PartnerRegistrationWizardProps>
 
   // Step Validation
   const validateStep1 = () => {
-    if (!fantasyName.trim()) {
-      setErrorMessage('Informe o Nome Fantasia do estabelecimento.');
-      return false;
-    }
-    const cleanPhone = whatsapp.replace(/\D/g, '');
-    if (cleanPhone.length < 10) {
-      setErrorMessage('Informe um WhatsApp comercial válido com DDD.');
-      return false;
-    }
-    if (!address.trim() || !neighborhood.trim() || !city.trim()) {
-      setErrorMessage('Preencha o endereço completo (Rua, Bairro e Cidade).');
-      return false;
-    }
-    setErrorMessage(null);
-    return true;
-  };
-
-  const validateStep2 = () => {
     if (!ownerName.trim()) {
       setErrorMessage('Informe o nome do responsável legal.');
       return false;
     }
+    // CPF é opcional: se preenchido, valida os 11 dígitos
     const cleanCpf = ownerCpf.replace(/\D/g, '');
-    if (cleanCpf.length !== 11) {
-      setErrorMessage('Informe um CPF válido de 11 dígitos.');
+    if (cleanCpf.length > 0 && cleanCpf.length !== 11) {
+      setErrorMessage('O CPF informado deve conter 11 dígitos (ou deixe em branco se preferir).');
       return false;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -220,10 +212,56 @@ export const PartnerRegistrationWizard: React.FC<PartnerRegistrationWizardProps>
     return true;
   };
 
-  const handleNext = () => {
+  const validateStep2 = () => {
+    if (!fantasyName.trim()) {
+      setErrorMessage('Informe o Nome Fantasia do estabelecimento.');
+      return false;
+    }
+    const cleanPhone = whatsapp.replace(/\D/g, '');
+    if (cleanPhone.length < 10) {
+      setErrorMessage('Informe um WhatsApp comercial válido com DDD.');
+      return false;
+    }
+    if (!address.trim() || !neighborhood.trim() || !city.trim()) {
+      setErrorMessage('Preencha o endereço completo (Rua, Bairro e Cidade).');
+      return false;
+    }
+    setErrorMessage(null);
+    return true;
+  };
+
+  const handleNext = async () => {
     hapticLight();
     if (step === 1) {
-      if (validateStep1()) setStep(2);
+      if (!validateStep1()) return;
+
+      // Persistência Imediata dos Dados do Responsável no Supabase
+      setIsSavingStep1(true);
+      setErrorMessage(null);
+      try {
+        const res = await saveOwnerPreliminaryDataToSupabase(
+          ownerName,
+          ownerEmail,
+          ownerPassword,
+          ownerCpf
+        );
+
+        if (res.userId) {
+          setRegisteredUserId(res.userId);
+        }
+        if (res.salonId) {
+          setRegisteredSalonId(res.salonId);
+        }
+
+        hapticSuccess();
+        setStep(2);
+      } catch (err: any) {
+        console.warn('[Partner Step 1 Save Warning]:', err);
+        // Mesmo em oscilação de rede avança para não travar o parceiro
+        setStep(2);
+      } finally {
+        setIsSavingStep1(false);
+      }
     } else if (step === 2) {
       if (validateStep2()) setStep(3);
     }
@@ -265,20 +303,22 @@ export const PartnerRegistrationWizard: React.FC<PartnerRegistrationWizardProps>
     };
 
     try {
-      // 1. Cria usuário no Supabase Auth
-      const authRes = await signUpWithSupabase(payload.ownerEmail, payload.ownerPassword || 'Vagou@2026', {
-        full_name: payload.ownerName,
-        cpf: payload.ownerCpf,
-        salon_name: payload.name,
-        role: 'partner_owner',
-      });
-
-      if (authRes.error) {
-        console.warn('[Supabase Auth Warning]:', authRes.error);
+      // 1. Assegura criação de usuário no Supabase Auth caso ainda não criado
+      let finalUserId = registeredUserId;
+      if (!finalUserId) {
+        const authRes = await signUpWithSupabase(payload.ownerEmail, payload.ownerPassword || 'Vagou@2026', {
+          full_name: payload.ownerName,
+          cpf: payload.ownerCpf || null,
+          salon_name: payload.name,
+          role: 'partner_owner',
+        });
+        if (authRes.user?.id) {
+          finalUserId = authRes.user.id;
+        }
       }
 
-      // 2. Grava dados na tabela `salons` do Supabase
-      const result = await syncSalonDataToSupabase(payload, authRes.user?.id);
+      // 2. Grava ou atualiza os dados completos na tabela `salons` do Supabase
+      const result = await syncSalonDataToSupabase(payload, finalUserId, registeredSalonId);
 
       hapticSuccess();
       onComplete(payload, result.salonId);
@@ -313,7 +353,7 @@ export const PartnerRegistrationWizard: React.FC<PartnerRegistrationWizardProps>
               </span>
             </h1>
             <p className="text-[11px] text-slate-400">
-              Passo {step} de 3 — {step === 1 ? 'Dados da Empresa' : step === 2 ? 'Responsável' : 'Visual & Link'}
+              Passo {step} de 3 — {step === 1 ? 'Responsável & Acesso' : step === 2 ? 'Dados do Estabelecimento' : 'Visual & Link'}
             </p>
           </div>
         </div>
@@ -344,8 +384,150 @@ export const PartnerRegistrationWizard: React.FC<PartnerRegistrationWizardProps>
           </div>
         )}
 
-        {/* STEP 1: Estabelecimento */}
+        {/* STEP 1: Responsável Legal & Acesso */}
         {step === 1 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
+              <User className="w-4 h-4" />
+              <span>Dados do Responsável & Conta de Acesso</span>
+            </div>
+
+            {/* Nome Completo */}
+            <div className="space-y-1">
+              <label htmlFor={ownerNameId} className="text-xs font-bold text-slate-300">
+                Nome Completo do Responsável <span className="text-emerald-400">*</span>
+              </label>
+              <input
+                id={ownerNameId}
+                type="text"
+                placeholder="Ex: Carlos Eduardo da Silva"
+                value={ownerName}
+                onChange={(e) => setOwnerName(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm text-white placeholder-slate-500 outline-none transition"
+              />
+            </div>
+
+            {/* CPF */}
+            <div className="space-y-1">
+              <label htmlFor={cpfId} className="text-xs font-bold text-slate-300 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>CPF do Responsável</span>
+                </span>
+                <span className="text-[10px] text-slate-500 font-normal">Opcional</span>
+              </label>
+              <input
+                id={cpfId}
+                type="text"
+                placeholder="000.000.000-00 (opcional)"
+                value={ownerCpf}
+                onChange={(e) => setOwnerCpf(formatCpf(e.target.value))}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm text-white placeholder-slate-500 outline-none transition font-mono"
+              />
+            </div>
+
+            {/* E-mail de Acesso */}
+            <div className="space-y-1">
+              <label htmlFor={emailId} className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-emerald-400" />
+                <span>E-mail de Acesso (Login) <span className="text-emerald-400">*</span></span>
+              </label>
+              <input
+                id={emailId}
+                type="email"
+                placeholder="contato@seusalao.com.br"
+                value={ownerEmail}
+                onChange={(e) => setOwnerEmail(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm text-white placeholder-slate-500 outline-none transition"
+              />
+            </div>
+
+            {/* Senha Estrita */}
+            <div className="space-y-1.5">
+              <label htmlFor={passwordId} className="text-xs font-bold text-slate-300 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Senha de Acesso <span className="text-emerald-400">*</span></span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  <span>{showPassword ? 'Ocultar' : 'Exibir'}</span>
+                </button>
+              </label>
+              <input
+                id={passwordId}
+                type={showPassword ? 'text' : 'password'}
+                maxLength={10}
+                placeholder="Senha de 8 a 10 dígitos"
+                value={ownerPassword}
+                onChange={(e) => setOwnerPassword(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm text-white placeholder-slate-500 outline-none transition font-mono tracking-wider"
+              />
+
+              {/* Checklist de Validação Estrita */}
+              <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 space-y-1.5">
+                <div className="flex items-center gap-2 text-[11px]">
+                  {isLenValid ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  ) : (
+                    <X className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                  )}
+                  <span className={isLenValid ? 'text-emerald-300 font-medium' : 'text-slate-500'}>
+                    8 a 10 caracteres ({ownerPassword.length}/10)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px]">
+                  {hasUpperCase ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  ) : (
+                    <X className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                  )}
+                  <span className={hasUpperCase ? 'text-emerald-300 font-medium' : 'text-slate-500'}>
+                    Pelo menos 1 letra maiúscula (A-Z)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px]">
+                  {hasSpecialChar ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  ) : (
+                    <X className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                  )}
+                  <span className={hasSpecialChar ? 'text-emerald-300 font-medium' : 'text-slate-500'}>
+                    Pelo menos 1 caractere especial (@, $, !, %, *, #)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Confirmação de Senha */}
+            <div className="space-y-1">
+              <label htmlFor={confirmPasswordId} className="text-xs font-bold text-slate-300">
+                Confirmar Senha <span className="text-emerald-400">*</span>
+              </label>
+              <input
+                id={confirmPasswordId}
+                type={showPassword ? 'text' : 'password'}
+                maxLength={10}
+                placeholder="Repita a senha"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm text-white placeholder-slate-500 outline-none transition font-mono tracking-wider"
+              />
+              {confirmPassword.length > 0 && (
+                <span className={`text-[10px] block ${doPasswordsMatch ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {doPasswordsMatch ? '✓ As senhas coincidem' : '✗ As senhas não conferem'}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* STEP 2: Dados do Estabelecimento */}
+        {step === 2 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
               <Building2 className="w-4 h-4" />
@@ -355,7 +537,7 @@ export const PartnerRegistrationWizard: React.FC<PartnerRegistrationWizardProps>
             {/* Nome Fantasia */}
             <div className="space-y-1">
               <label htmlFor={fantasyNameId} className="text-xs font-bold text-slate-300">
-                Nome Fantasia <span className="text-emerald-400">*</span>
+                Nome Fantasia do Salão / Barbearia <span className="text-emerald-400">*</span>
               </label>
               <input
                 id={fantasyNameId}
@@ -508,145 +690,6 @@ export const PartnerRegistrationWizard: React.FC<PartnerRegistrationWizardProps>
                   className="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-emerald-500 text-sm text-white text-center font-mono outline-none transition"
                 />
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 2: Responsável Legal */}
-        {step === 2 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
-              <User className="w-4 h-4" />
-              <span>Dados do Responsável Legal</span>
-            </div>
-
-            {/* Nome Completo */}
-            <div className="space-y-1">
-              <label htmlFor={ownerNameId} className="text-xs font-bold text-slate-300">
-                Nome Completo <span className="text-emerald-400">*</span>
-              </label>
-              <input
-                id={ownerNameId}
-                type="text"
-                placeholder="Ex: Carlos Eduardo da Silva"
-                value={ownerName}
-                onChange={(e) => setOwnerName(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm text-white placeholder-slate-500 outline-none transition"
-              />
-            </div>
-
-            {/* CPF */}
-            <div className="space-y-1">
-              <label htmlFor={cpfId} className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>CPF do Responsável <span className="text-emerald-400">*</span></span>
-              </label>
-              <input
-                id={cpfId}
-                type="text"
-                placeholder="000.000.000-00"
-                value={ownerCpf}
-                onChange={(e) => setOwnerCpf(formatCpf(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm text-white placeholder-slate-500 outline-none transition font-mono"
-              />
-            </div>
-
-            {/* E-mail de Acesso */}
-            <div className="space-y-1">
-              <label htmlFor={emailId} className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-emerald-400" />
-                <span>E-mail de Acesso (Login) <span className="text-emerald-400">*</span></span>
-              </label>
-              <input
-                id={emailId}
-                type="email"
-                placeholder="contato@seusalao.com.br"
-                value={ownerEmail}
-                onChange={(e) => setOwnerEmail(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm text-white placeholder-slate-500 outline-none transition"
-              />
-            </div>
-
-            {/* Senha Estrita */}
-            <div className="space-y-1.5">
-              <label htmlFor={passwordId} className="text-xs font-bold text-slate-300 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Senha de Acesso <span className="text-emerald-400">*</span></span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 cursor-pointer"
-                >
-                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  <span>{showPassword ? 'Ocultar' : 'Exibir'}</span>
-                </button>
-              </label>
-              <input
-                id={passwordId}
-                type={showPassword ? 'text' : 'password'}
-                maxLength={10}
-                placeholder="Senha de 8 a 10 dígitos"
-                value={ownerPassword}
-                onChange={(e) => setOwnerPassword(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm text-white placeholder-slate-500 outline-none transition font-mono tracking-wider"
-              />
-
-              {/* Checklist de Validação Estrita */}
-              <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 space-y-1.5">
-                <div className="flex items-center gap-2 text-[11px]">
-                  {isLenValid ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  ) : (
-                    <X className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-                  )}
-                  <span className={isLenValid ? 'text-emerald-300 font-medium' : 'text-slate-500'}>
-                    8 a 10 caracteres ({ownerPassword.length}/10)
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-[11px]">
-                  {hasUpperCase ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  ) : (
-                    <X className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-                  )}
-                  <span className={hasUpperCase ? 'text-emerald-300 font-medium' : 'text-slate-500'}>
-                    Pelo menos 1 letra maiúscula (A-Z)
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-[11px]">
-                  {hasSpecialChar ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  ) : (
-                    <X className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-                  )}
-                  <span className={hasSpecialChar ? 'text-emerald-300 font-medium' : 'text-slate-500'}>
-                    Pelo menos 1 caractere especial (@, $, !, %, *, #)
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Confirmação de Senha */}
-            <div className="space-y-1">
-              <label htmlFor={confirmPasswordId} className="text-xs font-bold text-slate-300">
-                Confirmar Senha <span className="text-emerald-400">*</span>
-              </label>
-              <input
-                id={confirmPasswordId}
-                type={showPassword ? 'text' : 'password'}
-                maxLength={10}
-                placeholder="Repita a senha"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-sm text-white placeholder-slate-500 outline-none transition font-mono tracking-wider"
-              />
-              {confirmPassword.length > 0 && (
-                <span className={`text-[10px] block ${doPasswordsMatch ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {doPasswordsMatch ? '✓ As senhas coincidem' : '✗ As senhas não conferem'}
-                </span>
-              )}
             </div>
           </div>
         )}
@@ -818,10 +861,20 @@ export const PartnerRegistrationWizard: React.FC<PartnerRegistrationWizardProps>
           <button
             type="button"
             onClick={handleNext}
-            className="flex-1 max-w-[200px] ml-auto py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 cursor-pointer"
+            disabled={isSavingStep1}
+            className="flex-1 max-w-[200px] ml-auto py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 active:scale-95 text-white font-bold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/50 cursor-pointer"
           >
-            <span>Continuar</span>
-            <ArrowRight className="w-3.5 h-3.5 text-white" />
+            {isSavingStep1 ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+                <span>Salvando...</span>
+              </>
+            ) : (
+              <>
+                <span>Continuar</span>
+                <ArrowRight className="w-3.5 h-3.5 text-white" />
+              </>
+            )}
           </button>
         ) : (
           <button

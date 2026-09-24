@@ -279,11 +279,65 @@ export async function signUpWithSupabase(
 }
 
 /**
+ * Grava imediatamente os dados essenciais do Responsável (Auth + rascunho de Salão) no Supabase na Etapa 1
+ */
+export async function saveOwnerPreliminaryDataToSupabase(
+  ownerName: string,
+  ownerEmail: string,
+  ownerPassword: string,
+  ownerCpf?: string
+): Promise<{ success: boolean; userId?: string; salonId?: string; error?: string }> {
+  try {
+    const cleanEmail = ownerEmail.trim().toLowerCase();
+    const cleanName = ownerName.trim();
+    const cleanCpf = ownerCpf ? ownerCpf.replace(/\D/g, '') : null;
+
+    // 1. Cria ou registra no Supabase Auth
+    const authRes = await signUpWithSupabase(cleanEmail, ownerPassword, {
+      full_name: cleanName,
+      cpf: cleanCpf,
+      role: 'partner_owner',
+    });
+
+    const userId = authRes.user?.id || null;
+
+    // 2. Cria registro inicial do responsável/salão no banco para não perder o lead
+    const preliminarySlug = `salao-${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now().toString().slice(-4)}`;
+    
+    const { data: salonData, error: salonError } = await supabase
+      .from('salons')
+      .insert({
+        owner_id: userId,
+        trade_name: `Salão ${cleanName}`,
+        legal_name: cleanName,
+        slug: preliminarySlug,
+        email: cleanEmail,
+        document_number: cleanCpf,
+        document_type: 'CPF',
+      })
+      .select('id')
+      .single();
+
+    if (salonError) {
+      console.warn('[Supabase DB] Inserção preliminar de salão falhou (Auth registrado):', salonError.message);
+      return { success: true, userId: userId || undefined };
+    }
+
+    console.log('[Supabase DB] Dados do Responsável gravados com sucesso no banco! Salon ID:', salonData?.id);
+    return { success: true, userId: userId || undefined, salonId: salonData?.id };
+  } catch (err: any) {
+    console.error('[Supabase DB] Exceção ao gravar responsável no banco:', err);
+    return { success: false, error: err?.message || 'Erro de conexão com o banco' };
+  }
+}
+
+/**
  * Salva ou sincroniza o novo estabelecimento na tabela salons do Supabase
  */
 export async function syncSalonDataToSupabase(
   salonData: SalonRegistrationPayload,
-  ownerUserId?: string
+  ownerUserId?: string,
+  existingSalonId?: string
 ): Promise<{ success: boolean; salonId: string; error?: string }> {
   const fullAddress = [
     salonData.address,
@@ -300,7 +354,7 @@ export async function syncSalonDataToSupabase(
     ? salonData.name.trim()
     : (salonData.slug && salonData.slug.trim().length > 0)
     ? salonData.slug.trim()
-    : 'Meu Estabelecimento';
+    : 'Estabelecimento Vagou';
 
   const legalName = (salonData.ownerName && salonData.ownerName.trim().length > 0)
     ? salonData.ownerName.trim()
@@ -310,9 +364,48 @@ export async function syncSalonDataToSupabase(
     ? salonData.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
     : `salao-${Date.now()}`;
 
-  // Lista de tentativas seguras: SEMPRE mantendo trade_name, legal_name e slug obrigatórios
+  const basePayload: Record<string, any> = {
+    trade_name: tradeName,
+    legal_name: legalName,
+    slug: safeSlug,
+    phone_whatsapp: salonData.phoneWhatsapp || '',
+    address: fullAddress || salonData.address || '',
+    neighborhood: salonData.neighborhood || '',
+    city: salonData.city || '',
+    state: salonData.state || 'SP',
+    cep: salonData.cep || '',
+    email: salonData.ownerEmail || '',
+    document_number: salonData.ownerCpf || null,
+  };
+
+  if (ownerUserId) {
+    basePayload.owner_id = ownerUserId;
+  }
+
+  // Se já tivermos o ID do salão criado na Etapa 1, atualiza o registro
+  if (existingSalonId) {
+    try {
+      console.log('[Supabase DB] Atualizando dados finais do salão ID:', existingSalonId);
+      const { data, error } = await supabase
+        .from('salons')
+        .update(basePayload)
+        .eq('id', existingSalonId)
+        .select('*')
+        .single();
+
+      if (!error && data) {
+        console.log('[Supabase DB Sucesso] Salão atualizado com sucesso no Supabase! ID:', data.id);
+        saveLocalSalon(salonData, data.id);
+        return { success: true, salonId: data.id };
+      }
+    } catch (updateErr) {
+      console.warn('[Supabase DB] Falha no update, tentando fallback de insert:', updateErr);
+    }
+  }
+
+  // Lista de tentativas seguras de inserção
   const attempts: Record<string, any>[] = [
-    // 1. Inserção completa com campos comuns
+    basePayload,
     {
       trade_name: tradeName,
       legal_name: legalName,
@@ -321,28 +414,10 @@ export async function syncSalonDataToSupabase(
       address: fullAddress || salonData.address || '',
       neighborhood: salonData.neighborhood || '',
       city: salonData.city || '',
-      state: salonData.state || 'SP',
-      operating_model: salonData.operatingModel || 'team',
     },
-    // 2. Inserção com colunas obrigatórias e essenciais
     {
       trade_name: tradeName,
       legal_name: legalName,
-      slug: safeSlug,
-      phone_whatsapp: salonData.phoneWhatsapp || '',
-      address: fullAddress || '',
-    },
-    // 3. Inserção mínima estrita com as colunas NOT NULL do banco
-    {
-      trade_name: tradeName,
-      legal_name: legalName,
-      slug: safeSlug,
-    },
-    // 4. Caso o schema também aceite 'name'
-    {
-      trade_name: tradeName,
-      legal_name: legalName,
-      name: tradeName,
       slug: safeSlug,
     },
   ];
@@ -478,6 +553,82 @@ export function getLocalRegisteredSalon(): (SalonRegistrationPayload & { id: str
     return saved ? JSON.parse(saved) : null;
   } catch {
     return null;
+  }
+}
+
+export interface SupabaseHealthStatus {
+  status: 'checking' | 'connected' | 'auth_only' | 'error';
+  userEmail: string | null;
+  userId: string | null;
+  dbAccessible: boolean;
+  latencyMs: number;
+  message: string;
+}
+
+/**
+ * Executa diagnóstico completo de conectividade do Supabase (Auth + Database Ping)
+ */
+export async function checkSupabaseHealth(): Promise<SupabaseHealthStatus> {
+  const start = performance.now();
+  try {
+    // 1. Diagnóstico do Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.getSession();
+    const session = authData?.session;
+    const userEmail = session?.user?.email || null;
+    const userId = session?.user?.id || null;
+
+    // 2. Diagnóstico de leitura da tabela salons
+    const { data: dbData, error: dbError } = await supabase
+      .from('salons')
+      .select('id, trade_name, slug')
+      .limit(1);
+
+    const latencyMs = Math.round(performance.now() - start);
+
+    if (dbError) {
+      console.warn('[Supabase Diagnostic] DB warning:', dbError.message);
+      // Se tiver sessão de Auth mas DB tiver restrição
+      if (!authError && session) {
+        return {
+          status: 'auth_only',
+          userEmail,
+          userId,
+          dbAccessible: false,
+          latencyMs,
+          message: `Supabase Auth conectado (${userEmail}). Banco: ${dbError.message}`,
+        };
+      }
+      return {
+        status: 'error',
+        userEmail: null,
+        userId: null,
+        dbAccessible: false,
+        latencyMs,
+        message: `Falha no Supabase: ${dbError.message} (${dbError.code || 'ERR'})`,
+      };
+    }
+
+    const countSalons = dbData ? dbData.length : 0;
+    return {
+      status: 'connected',
+      userEmail,
+      userId,
+      dbAccessible: true,
+      latencyMs,
+      message: userEmail
+        ? `Supabase 100% Online (${latencyMs}ms) • Sessão: ${userEmail}`
+        : `Supabase 100% Online (${latencyMs}ms) • Banco Ativo`,
+    };
+  } catch (err: any) {
+    const latencyMs = Math.round(performance.now() - start);
+    return {
+      status: 'error',
+      userEmail: null,
+      userId: null,
+      dbAccessible: false,
+      latencyMs,
+      message: `Erro de conexão com o Supabase: ${err?.message || 'Sem resposta do servidor'}`,
+    };
   }
 }
 

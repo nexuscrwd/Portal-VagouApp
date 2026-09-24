@@ -37,6 +37,7 @@ import { PartnerBottomNav } from './components/PartnerBottomNav';
 import { SplashScreen } from './components/SplashScreen';
 import { PartnerRegistrationWizard } from './components/PartnerRegistrationWizard';
 import { PartnerOnboardingModal } from './components/PartnerOnboardingModal';
+import { SupabaseDiagnosticToast } from './components/SupabaseDiagnosticToast';
 import { scheduleAppointmentReminder } from './utils/notifications';
 import { formatSlotDateTime } from './utils/dateFormatter';
 import { useTheme } from './context/ThemeContext';
@@ -919,6 +920,9 @@ export const App: React.FC = () => {
 
         {/* Official Brand Splash Screen (Manual de Identidade Visual) */}
         <SplashScreen durationMs={1400} />
+
+        {/* Supabase Realtime Diagnostic Toast on App Load */}
+        <SupabaseDiagnosticToast />
       </main>
     </div>
   );
