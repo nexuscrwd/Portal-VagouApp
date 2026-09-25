@@ -35,6 +35,10 @@ interface ProfileScreenProps {
   onSelectOffer?: (offer: ServiceOffer) => void;
   onSwitchToPartnerMode?: () => void;
   onOpenPartnerRegistration?: () => void;
+  currentUser?: any;
+  isLoggedIn?: boolean;
+  onLogout?: () => void;
+  onOpenAuthModal?: () => void;
 }
 
 export const ProfileScreen: React.FC<ProfileScreenProps> = ({
@@ -48,6 +52,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onSelectOffer,
   onSwitchToPartnerMode,
   onOpenPartnerRegistration,
+  currentUser,
+  isLoggedIn = false,
+  onLogout,
+  onOpenAuthModal,
 }) => {
   const [notificationStatus, setNotificationStatus] = useState<string>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
@@ -55,6 +63,9 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [notifSuccessMessage, setNotifSuccessMessage] = useState<string>('');
 
   const favoriteOffers = offers.filter((o) => favorites.includes(o.id));
+
+  const userName = currentUser?.user_metadata?.full_name || currentUser?.email?.split('@')[0] || 'Cliente Vagou';
+  const userEmailOrPhone = currentUser?.email || currentUser?.user_metadata?.phone || 'Acesse sua conta para agendar';
 
   const handleEnableNotifications = async () => {
     const perm = await requestNotificationPermission();
@@ -98,21 +109,56 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </div>
       )}
 
-      {/* User Header */}
-      <div className="flex items-center gap-3.5 pt-1">
-        <div className="w-14 h-14 rounded-full bg-emerald-100 border-2 border-emerald-500 text-emerald-800 flex items-center justify-center font-black text-xl shadow-sm">
-          A
-        </div>
-        <div>
-          <h2 className="text-base font-black text-slate-900">Anderson Silva</h2>
-          <p className="text-xs text-slate-500 font-medium">+55 (11) 98765-4321</p>
-          <div className="flex items-center gap-1 mt-1">
-            <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-md border border-emerald-200">
-              Cliente VIP
-            </span>
+      {/* User Header Dynamic State */}
+      {isLoggedIn ? (
+        <div className="flex items-center justify-between pt-1 p-3.5 rounded-[4px] bg-slate-50 border border-slate-200/80">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center font-black text-lg shadow-sm">
+              {userName.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-slate-900">{userName}</h2>
+              <p className="text-xs text-slate-500 font-medium">{userEmailOrPhone}</p>
+              <div className="flex items-center gap-1 mt-1">
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-[4px] border border-emerald-200">
+                  Conta Ativa
+                </span>
+              </div>
+            </div>
           </div>
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="p-2 text-rose-600 hover:bg-rose-50 rounded-[4px] transition text-xs font-bold flex items-center gap-1 cursor-pointer"
+              title="Sair da Conta"
+            >
+              <LogOut className="w-4 h-4 text-rose-600" />
+              <span className="hidden sm:inline">Sair</span>
+            </button>
+          )}
         </div>
-      </div>
+      ) : (
+        <div className="p-4 rounded-[4px] bg-slate-900 text-white border border-slate-800 space-y-3 shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center font-bold text-base">
+              <User className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white">Visitante no VagouApp</h2>
+              <p className="text-xs text-slate-400">Entre para agendar serviços e guardar seus horários</p>
+            </div>
+          </div>
+          {onOpenAuthModal && (
+            <button
+              onClick={onOpenAuthModal}
+              className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.99] text-white font-bold text-xs rounded-[4px] transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+            >
+              <User className="w-4 h-4 text-white" />
+              <span>Entrar ou Cadastrar-se</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Switch to Partner / Business Mode Banner */}
       {onSwitchToPartnerMode && (

@@ -792,13 +792,19 @@ export const PartnerRegistrationWizard: React.FC<PartnerRegistrationWizardProps>
               </div>
             </div>
 
-            {/* Slug exclusivo do App */}
+            {/* Slug e Subdomínio Cloudflare Exclusivo do App */}
             <div className="space-y-1.5 pt-1">
-              <label htmlFor="input-partner-slug" className="text-xs font-bold text-slate-300 block">
-                Link Exclusivo do Estabelecimento <span className="text-emerald-400">*</span>
-              </label>
-              <div className="flex items-center bg-slate-900 rounded-xl border border-slate-800 px-3.5 py-2.5 focus-within:border-emerald-500 transition">
-                <span className="text-xs font-mono text-emerald-400 font-bold select-none">vagou.app/</span>
+              <div className="flex items-center justify-between">
+                <label htmlFor="input-partner-slug" className="text-xs font-bold text-slate-300 block">
+                  Subdomínio & Link Exclusivo do Estabelecimento <span className="text-emerald-400">*</span>
+                </label>
+                <span className="text-[9.5px] font-mono px-1.5 py-0.5 rounded-[4px] bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                  Cloudflare Wildcard SSL
+                </span>
+              </div>
+
+              <div className="flex items-center bg-slate-900 rounded-[4px] border border-slate-800 px-3 py-2 focus-within:border-emerald-500 transition">
                 <input
                   id="input-partner-slug"
                   type="text"
@@ -807,30 +813,38 @@ export const PartnerRegistrationWizard: React.FC<PartnerRegistrationWizardProps>
                     setSlugCustomized(true);
                     setSlug(generateSlugFromName(e.target.value));
                   }}
-                  placeholder="seu-salao"
-                  className="flex-1 bg-transparent text-sm text-white font-mono outline-none pl-1"
+                  placeholder="flavi"
+                  className="w-28 bg-transparent text-xs text-white font-mono font-bold text-right outline-none pr-0.5"
                 />
+                <span className="text-xs font-mono text-[#20C933] font-bold select-none">.vagouapp.com</span>
               </div>
-              <p className="text-[10px] text-slate-500">
-                Seus clientes poderão abrir o aplicativo direto por este link.
+              <p className="text-[10px] text-slate-400">
+                Seu subdomínio será ativado instantaneamente via Cloudflare para os clientes acessarem diretamente.
               </p>
             </div>
 
-            {/* Cartão de Prévia da Marca */}
-            <div className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-2">
-              <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">
-                Prévia da Identidade
-              </span>
+            {/* Cartão de Prévia da Marca & Endereço Web */}
+            <div className="p-3.5 rounded-[4px] bg-slate-900/90 border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">
+                  Prévia da Identidade & URL Exclusiva
+                </span>
+                <span className="text-[9px] text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-500/20 px-1.5 py-0.5 rounded-[4px]">
+                  ✓ Ativação Imediata
+                </span>
+              </div>
               <div className="flex items-center gap-3">
                 <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg text-white shadow-md"
+                  className="w-10 h-10 rounded-[4px] flex items-center justify-center font-black text-base text-white shadow-md shrink-0"
                   style={{ backgroundColor: customPrimaryColor }}
                 >
-                  {fantasyName ? fantasyName.charAt(0).toUpperCase() : 'V'}
+                  {fantasyName ? fantasyName.charAt(0).toUpperCase() : 'F'}
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">{fantasyName || 'Nome do Estabelecimento'}</h4>
-                  <p className="text-xs text-slate-400 font-mono">vagou.app/{slug || 'seu-salao'}</p>
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-xs font-bold text-white truncate">{fantasyName || 'Flavi Hair • Studio'}</h4>
+                  <p className="text-[11px] font-mono text-[#20C933] font-bold truncate">
+                    https://{slug || 'flavi'}.vagouapp.com
+                  </p>
                 </div>
               </div>
             </div>

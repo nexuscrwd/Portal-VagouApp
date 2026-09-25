@@ -15,6 +15,16 @@ Este arquivo registra cronologicamente todas as modificações relevantes realiz
 
 ## 📜 Registros de Alterações
 
+### [2026-09-25] — Produção Limpa: Remoção de Perfil Teste ("Anderson Silva") & Estado do Visitante
+- **Tipo:** `[Fix / Production / Auth / UX]`
+- **Motivo:** Remoção completa do perfil pré-carregado de testes ("Anderson Silva"). Agora, ao acessar a URL do VagouApp em produção, o usuário entra como **Visitante limpo** (`currentUser: null`), exigindo login/cadastro apenas ao salvar dados, favoritar ou agendar.
+- **Arquivos Impactados:** `src/App.tsx`, `src/components/ProfileScreen.tsx`, `src/components/ProfileDrawer.tsx`, `CHANGELOG.md`
+
+### [2026-09-25] — Roteamento de Subdomínio Dinâmico & Wizard do Parceiro Cloudflare (`nomedonegocio.vagoapp.com`)
+- **Tipo:** `[Feature / Multi-Tenant / Dynamic Routing / Partner Wizard]`
+- **Motivo:** Atualização do assistente de cadastro do parceiro (`PartnerRegistrationWizard.tsx`) com input inteligente e prévia em tempo real para criação automática do subdomínio `nomedonegocio.vagoapp.com` (com indicação do Cloudflare Wildcard SSL e ativação instantânea no Supabase).
+- **Arquivos Impactados:** `src/App.tsx`, `src/portal-export/PartnerRegistrationWizard.tsx`, `CHANGELOG.md`
+
 ### [2026-09-25] — Autenticação Administrativa no Supabase (`salons.pin_code`), Recuperação de Senha & Design System 4px
 - **Tipo:** `[Feature / Security / Supabase Auth / Design System / UX]`
 - **Motivo:** Atualização completa do módulo de autenticação administrativa do parceiro e redefinição de senha com validação assíncrona real na tabela `salons` (`pin_code` + senha mestre `31101500`), modal de recuperação de senha por e-mail (Supabase Auth) e WhatsApp direto, design system com cantos em 4px (`rounded-[4px]`), ajuste de viewport fit sem rolagem e atualização do rodapé institucional para `Tecnologia VagouApp • 2026`.

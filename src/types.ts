@@ -70,6 +70,8 @@ export interface PartnerAppointmentItem {
 export interface ServiceOffer {
   id: string;
   salonId?: string;
+  salonSlug?: string;
+  customDomain?: string;
   professionalId?: string;
   serviceId?: string;
   salonName: string;

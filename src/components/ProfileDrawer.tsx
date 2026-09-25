@@ -74,9 +74,9 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
   onOpenPartnerRegistration,
   onOpenInterestConfig,
   onOpenHelpModal,
-  userName = 'Anderson Silva',
+  userName = 'Cliente Vagou',
   userAvatarUrl = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-  isLoggedIn = true,
+  isLoggedIn = false,
   onLogout,
   onOpenAuthModal,
   familyProfiles = [],
@@ -95,20 +95,20 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         return {
-          fullName: parsed.fullName || userName || 'Anderson Silva',
-          email: parsed.email || 'anderson.silva@email.com',
-          phone: parsed.phone || '(11) 98765-4321',
-          address: parsed.address || 'Rua Oscar Freire, 1200 - São Paulo, SP',
+          fullName: parsed.fullName || userName || 'Cliente Vagou',
+          email: parsed.email || '',
+          phone: parsed.phone || '',
+          address: parsed.address || 'São Paulo, SP',
         };
       }
     } catch {
       // fallback padrão
     }
     return {
-      fullName: userName || 'Anderson Silva',
-      email: 'anderson.silva@email.com',
-      phone: '(11) 98765-4321',
-      address: 'Rua Oscar Freire, 1200 - São Paulo, SP',
+      fullName: userName || 'Cliente Vagou',
+      email: '',
+      phone: '',
+      address: 'São Paulo, SP',
     };
   });
 

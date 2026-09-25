@@ -240,6 +240,44 @@ export const INITIAL_PARTNER_APPOINTMENTS: PartnerAppointmentItem[] = [
 ];
 
 const RAW_MOCK_OFFERS: ServiceOffer[] = [
+  // --- FLAVI HAIR (Flávia Sampaio) ---
+  {
+    id: 'off-flavi-1',
+    salonName: 'Flavi Hair • Studio & Estética',
+    salonSlug: 'flavihair',
+    customDomain: 'flavihair.com.br',
+    professionalName: 'Flávia Sampaio',
+    professionalAvatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80',
+    serviceTitle: 'Escova Modelada & Mechas Visagistas',
+    serviceCategory: 'cabelo',
+    price: 180.0,
+    originalPrice: 250.0,
+    rating: 5.0,
+    ratingCount: 164,
+    distance: '1.2 km',
+    distanceMeters: 1200,
+    neighborhood: 'Moema, São Paulo',
+    timeSlot: 'Hoje • 16:00',
+    dayLabel: 'Hoje',
+    duration: '90 min',
+    imageUrl: 'https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=800&q=80',
+    galleryImages: [
+      'https://images.unsplash.com/photo-1562322140-8baeececf3df?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=800&q=80',
+    ],
+    lat: -23.565,
+    lng: -46.662,
+    featured: true,
+    mediaLevel: 3,
+    videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-hairdresser-combing-the-hair-of-a-woman-41581-large.mp4',
+    expiresInMinutes: 25,
+    expiresTimestamp: Date.now() + 25 * 60 * 1000,
+    activeViewers: 12,
+    isFlashDeal: true,
+    brandGradient: 'from-fuchsia-950 via-slate-900 to-zinc-950',
+    description: 'Tratamento de mechas Iluminadas com visagismo completo, reconstrução capilar e escova modelada exclusiva Flavi Hair.',
+  },
+
   // --- SALÃO X PRIME (Lucas Silva) ---
   {
     id: 'off-1',

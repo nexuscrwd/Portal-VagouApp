@@ -9,7 +9,7 @@ import {
   PartnerAppointmentItem,
   DayScheduleConfig,
 } from './types';
-import { DEFAULT_WEEK_SCHEDULE } from './data';
+import { DEFAULT_WEEK_SCHEDULE, MOCK_OFFERS } from './data';
 import { HomeScreen } from './components/HomeScreen';
 import { PinterestExploreScreen } from './components/PinterestExploreScreen';
 import { MapScreen } from './components/MapScreen';
@@ -84,29 +84,12 @@ export const App: React.FC = () => {
   const [isPartnerAuthModalOpen, setIsPartnerAuthModalOpen] = useState<boolean>(false);
   const [authPendingOffer, setAuthPendingOffer] = useState<ServiceOffer | null>(null);
 
-  // Estado de Autenticação do Usuário
+  // Estado de Autenticação do Usuário (Visitante por Padrão em Produção)
   const [currentUser, setCurrentUser] = useState<any>(() => {
     try {
       const saved = localStorage.getItem('vagou_current_user');
       if (saved) return JSON.parse(saved);
-      // Por padrão, se não tiver sido feito logout explícito, inicializa com Anderson Silva
-      const isLoggedOut = localStorage.getItem('vagou_logged_out') === 'true';
-      if (isLoggedOut) return null;
-
-      const savedProfile = localStorage.getItem('vagou_private_user_profile');
-      if (savedProfile) {
-        const p = JSON.parse(savedProfile);
-        return {
-          id: 'user-anderson-silva',
-          email: p.email || 'anderson.silva@email.com',
-          user_metadata: { full_name: p.fullName || 'Anderson Silva', phone: p.phone || '(11) 98765-4321' },
-        };
-      }
-      return {
-        id: 'user-anderson-silva',
-        email: 'anderson.silva@email.com',
-        user_metadata: { full_name: 'Anderson Silva', phone: '(11) 98765-4321' },
-      };
+      return null;
     } catch {
       return null;
     }
@@ -343,6 +326,37 @@ export const App: React.FC = () => {
   useEffect(() => {
     loadLiveAppointments();
     loadPartnerData();
+
+    // Roteamento por Subdomínio Dinâmico (ex: nomedonegocio.vagouapp.com) e Parâmetros de URL
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlSlug = urlParams.get('salon') || urlParams.get('slug');
+      const hostname = window.location.hostname.toLowerCase();
+
+      let targetSlug = urlSlug;
+
+      if (!targetSlug) {
+        // Trata subdomínios como nomedonegocio.vagoapp.com ou nomedonegocio.vagouapp.com
+        const parts = hostname.split('.');
+        if (parts.length >= 2) {
+          const firstSub = parts[0];
+          const reservedSubs = ['www', 'app', 'dev', 'ais-dev', 'ais-pre', 'localhost', '127'];
+          if (!reservedSubs.includes(firstSub)) {
+            targetSlug = firstSub;
+          }
+        }
+      }
+
+      if (targetSlug) {
+        const foundSalonOffer = MOCK_OFFERS.find(
+          (o) => o.salonSlug === targetSlug || o.salonName.toLowerCase().includes(targetSlug.toLowerCase())
+        );
+        if (foundSalonOffer) {
+          setSelectedOffer(foundSalonOffer);
+          setCurrentScreen('detalhe-oferta');
+        }
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -984,6 +998,10 @@ export const App: React.FC = () => {
                     setIsPartnerAuthModalOpen(true);
                   }}
                   onOpenPartnerRegistration={() => setIsRegisterWizardOpen(true)}
+                  currentUser={currentUser}
+                  isLoggedIn={Boolean(currentUser)}
+                  onLogout={handleLogout}
+                  onOpenAuthModal={() => setIsAuthModalOpen(true)}
                 />
               )}
 
