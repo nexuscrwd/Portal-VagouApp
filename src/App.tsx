@@ -23,6 +23,7 @@ import { BottomNav, SalonNavContext } from './components/BottomNav';
 import { SearchModal } from './components/SearchModal';
 import { ProfileDrawer } from './components/ProfileDrawer';
 import { VagouAuthModal } from './components/VagouAuthModal';
+import { PartnerAuthModal } from './components/PartnerAuthModal';
 import { InterestOnboardingModal } from './components/InterestOnboardingModal';
 import { AddFamilyMemberModal } from './components/AddFamilyMemberModal';
 import { InstallModal } from './components/InstallModal';
@@ -80,6 +81,7 @@ export const App: React.FC = () => {
   const [isInterestModalOpen, setIsInterestModalOpen] = useState<boolean>(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isPartnerAuthModalOpen, setIsPartnerAuthModalOpen] = useState<boolean>(false);
   const [authPendingOffer, setAuthPendingOffer] = useState<ServiceOffer | null>(null);
 
   // Estado de Autenticação do Usuário
@@ -979,8 +981,7 @@ export const App: React.FC = () => {
                     setCurrentScreen('detalhe-oferta');
                   }}
                   onSwitchToPartnerMode={() => {
-                    setAppMode('partner');
-                    setPartnerScreen('partner-agenda');
+                    setIsPartnerAuthModalOpen(true);
                   }}
                   onOpenPartnerRegistration={() => setIsRegisterWizardOpen(true)}
                 />
@@ -1015,8 +1016,8 @@ export const App: React.FC = () => {
               onNavigateToFavorites={() => setCurrentScreen('favoritos')}
               favoriteCount={favorites.length}
               onSwitchToPartnerMode={() => {
-                setAppMode('partner');
-                setPartnerScreen('partner-agenda');
+                setIsProfileDrawerOpen(false);
+                setIsPartnerAuthModalOpen(true);
               }}
               onOpenPartnerRegistration={() => {
                 setIsProfileDrawerOpen(false);
@@ -1090,6 +1091,17 @@ export const App: React.FC = () => {
                   handleConfirmBooking(authPendingOffer);
                   setAuthPendingOffer(null);
                 }
+              }}
+            />
+
+            {/* Modal de Autenticação Administrativa do Parceiro */}
+            <PartnerAuthModal
+              isOpen={isPartnerAuthModalOpen}
+              onClose={() => setIsPartnerAuthModalOpen(false)}
+              onSuccess={() => {
+                setIsPartnerAuthModalOpen(false);
+                setAppMode('partner');
+                setPartnerScreen('partner-agenda');
               }}
             />
           </div>

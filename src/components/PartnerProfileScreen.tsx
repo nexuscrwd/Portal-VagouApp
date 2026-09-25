@@ -293,9 +293,18 @@ export const PartnerProfileScreen: React.FC<PartnerProfileScreenProps> = ({
 
       <div className="pt-4 pb-2 flex flex-col items-center justify-center gap-1.5 text-center">
         <VagouLogo variant="full" size="sm" theme="light" showTagline />
-        <span className="text-[10px] text-slate-400 font-medium">
-          Vagou Parceiro v1.2.0 • Painel do Estabelecimento
-        </span>
+        <p className="text-[11px] text-slate-500 font-medium">
+          Tecnologia{' '}
+          <a
+            href="https://vagou.app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#20C933] font-bold hover:underline"
+          >
+            VagouApp
+          </a>{' '}
+          • 2026
+        </p>
       </div>
     </div>
   );

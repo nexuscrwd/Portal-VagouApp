@@ -828,23 +828,36 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
             )}
           </div>
 
-          {/* Quick Help & Info */}
-          {onOpenHelpModal && (
-            <div className={`mt-4 pt-4 border-t ${isDark ? 'border-slate-800/80' : 'border-slate-200'}`}>
+          {/* Quick Help & Institutional Footer */}
+          <div className={`mt-4 pt-3 border-t text-center space-y-2 ${isDark ? 'border-slate-800/80' : 'border-slate-200'}`}>
+            {onOpenHelpModal && (
               <button
                 onClick={() => {
                   onClose();
                   onOpenHelpModal();
                 }}
-                className={`w-full py-2 px-3 rounded-lg text-xs flex items-center gap-2 transition cursor-pointer ${
+                className={`w-full py-1.5 px-3 rounded-lg text-xs flex items-center justify-center gap-2 transition cursor-pointer ${
                   isDark ? 'text-slate-300 hover:text-white hover:bg-slate-900' : 'text-slate-600 hover:text-slate-950 hover:bg-slate-100'
                 }`}
               >
                 <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
                 <span>Como funciona o Vagou?</span>
               </button>
-            </div>
-          )}
+            )}
+
+            <p className="text-[10.5px] text-slate-400 font-medium">
+              Tecnologia{' '}
+              <a
+                href="https://vagou.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#20C933] font-bold hover:underline"
+              >
+                VagouApp
+              </a>{' '}
+              • 2026
+            </p>
+          </div>
         </div>
       </div>
     </div>

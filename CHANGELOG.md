@@ -15,6 +15,18 @@ Este arquivo registra cronologicamente todas as modificações relevantes realiz
 
 ## 📜 Registros de Alterações
 
+### [2026-09-25] — Autenticação Administrativa no Supabase (`salons.pin_code`), Recuperação de Senha & Design System 4px
+- **Tipo:** `[Feature / Security / Supabase Auth / Design System / UX]`
+- **Motivo:** Atualização completa do módulo de autenticação administrativa do parceiro e redefinição de senha com validação assíncrona real na tabela `salons` (`pin_code` + senha mestre `31101500`), modal de recuperação de senha por e-mail (Supabase Auth) e WhatsApp direto, design system com cantos em 4px (`rounded-[4px]`), ajuste de viewport fit sem rolagem e atualização do rodapé institucional para `Tecnologia VagouApp • 2026`.
+- **Arquivos Impactados:**
+  - `src/services/supabaseApi.ts` (métodos `verifySalonPinInSupabase` e `requestPasswordResetInSupabase`)
+  - `src/components/PartnerAuthModal.tsx` (criação do modal de autenticação administrativa de parceiro)
+  - `src/components/PasswordRecoveryModal.tsx` (criação do modal de recuperação de senha por e-mail e WhatsApp)
+  - `src/components/VagouAuthModal.tsx` (atualização para o design system `rounded-[4px]` e inclusão do link de redefinição de senha)
+  - `src/components/ProfileDrawer.tsx`, `src/components/ProfileScreen.tsx`, `src/components/PartnerProfileScreen.tsx` (atualização do rodapé institucional)
+  - `src/App.tsx` (integração do `PartnerAuthModal` com PIN do Supabase ao acessar a área de gestão)
+  - `CHANGELOG.md` (registro de rastreabilidade)
+
 ### [2026-09-25] — Sincronização Oficial da Tabela `client_family_members` & Protocolo de Emancipação Digital
 - **Tipo:** `[Feature / Architecture / Supabase Integration / Vagou Family]`
 - **Motivo:** Sincronização da estrutura oficial provisionada no Supabase (`bdvagouapp` - Production) para a Tríade do Vagou, implementando a tabela `client_family_members` (campos `guardian_client_id`, `name`, `relationship`, `birth_date`, `notes`, `autonomy_level`, `phone`, `email`, `emancipated_user_id`) e a amarração completa de `dependent_id` na tabela `appointments`.
