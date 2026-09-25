@@ -1090,6 +1090,10 @@ export async function syncSalonDataToSupabase(
     cep: salonData.cep || '',
     email: salonData.ownerEmail || '',
     document_number: salonData.ownerCpf || null,
+    logo_url: salonData.branding?.logoUrl || null,
+    primary_color: salonData.branding?.primaryColor || '#10B981',
+    brand_color: salonData.branding?.primaryColor || '#10B981',
+    category: salonData.segment || 'salao',
   };
 
   if (ownerUserId) {

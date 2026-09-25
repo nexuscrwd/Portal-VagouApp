@@ -15,6 +15,16 @@ Este arquivo registra cronologicamente todas as modificações relevantes realiz
 
 ## 📜 Registros de Alterações
 
+### [2026-09-25] — Remoção de Popup de Diagnóstico do Supabase (`SupabaseDiagnosticToast`)
+- **Tipo:** `[UI / Cleanup / Popup]`
+- **Motivo:** Remoção da exibição do popup flutuante de diagnóstico do Supabase no topo da tela. O código do componente foi 100% preservado em `src/components/SupabaseDiagnosticToast.tsx` para ser reativado imediatamente quando solicitado pelo usuário.
+- **Arquivos Impactados:** `src/App.tsx`, `CHANGELOG.md`
+
+### [2026-09-25] — Importação Mágica de Marca de 1 Clique (Instagram / Site) & Gravação no Supabase DB
+- **Tipo:** `[Feature / Branding / Supabase DB / UX]`
+- **Motivo:** Implementação do assistente de importação rápida de marca no cadastro do parceiro (`PartnerRegistrationWizard.tsx`). Permite extrair o logotipo e paleta de cores de uma conta do Instagram ou site em 1 clique via Unavatar Proxy + Canvas Color Extractor, gravando automaticamente `logo_url`, `primary_color`, `brand_color` e `category` na tabela `salons` do Supabase.
+- **Arquivos Impactados:** `src/portal-export/PartnerRegistrationWizard.tsx`, `src/services/supabaseApi.ts`, `CHANGELOG.md`
+
 ### [2026-09-25] — Produção Limpa: Remoção de Perfil Teste ("Anderson Silva") & Estado do Visitante
 - **Tipo:** `[Fix / Production / Auth / UX]`
 - **Motivo:** Remoção completa do perfil pré-carregado de testes ("Anderson Silva"). Agora, ao acessar a URL do VagouApp em produção, o usuário entra como **Visitante limpo** (`currentUser: null`), exigindo login/cadastro apenas ao salvar dados, favoritar ou agendar.

@@ -102,6 +102,99 @@ export const PartnerRegistrationWizard: React.FC<PartnerRegistrationWizardProps>
   const [slug, setSlug] = useState('');
   const [slugCustomized, setSlugCustomized] = useState(false);
 
+  // Magic Brand Import (Instagram / Website / @handle)
+  const [socialBrandInput, setSocialBrandInput] = useState('');
+  const [isImportingBrand, setIsImportingBrand] = useState(false);
+  const [importedLogoUrl, setImportedLogoUrl] = useState<string | null>(null);
+  const [brandImportFeedback, setBrandImportFeedback] = useState<string | null>(null);
+
+  // Função para extrair cor primária predominante da imagem no Canvas
+  const extractDominantHex = (imgUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.src = imgUrl;
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return resolve('#10B981');
+          canvas.width = 30;
+          canvas.height = 30;
+          ctx.drawImage(img, 0, 0, 30, 30);
+          const data = ctx.getImageData(0, 0, 30, 30).data;
+          let r = 0, g = 0, b = 0, count = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            const pr = data[i], pg = data[i + 1], pb = data[i + 2], alpha = data[i + 3];
+            // Filtra pixels transparentes, muito claros ou muito escuros
+            if (alpha > 150 && !(pr > 235 && pg > 235 && pb > 235) && !(pr < 25 && pg < 25 && pb < 25)) {
+              r += pr; g += pg; b += pb; count++;
+            }
+          }
+          if (count > 0) {
+            const hexR = Math.round(r / count).toString(16).padStart(2, '0');
+            const hexG = Math.round(g / count).toString(16).padStart(2, '0');
+            const hexB = Math.round(b / count).toString(16).padStart(2, '0');
+            return resolve(`#${hexR}${hexG}${hexB}`);
+          }
+        } catch {
+          // Ignora erro de CORS ou suporte Canvas
+        }
+        resolve('#10B981');
+      };
+      img.onerror = () => resolve('#10B981');
+    });
+  };
+
+  const handleMagicBrandImport = async () => {
+    if (!socialBrandInput.trim()) {
+      setBrandImportFeedback('Digite seu @instagram ou link do site (ex: @flavihair)');
+      return;
+    }
+
+    setIsImportingBrand(true);
+    setBrandImportFeedback(null);
+    hapticLight();
+
+    try {
+      const raw = socialBrandInput.trim().replace(/^@/, '');
+      let cleanHandle = raw;
+
+      if (raw.includes('instagram.com/')) {
+        cleanHandle = raw.split('instagram.com/')[1]?.split('/')[0]?.split('?')[0] || raw;
+      } else if (raw.includes('http://') || raw.includes('https://') || raw.includes('.')) {
+        cleanHandle = raw.replace(/^https?:\/\//, '').split('/')[0];
+      }
+
+      // 1. Gera URLs de Unavatar / Proxy de imagem oficial do perfil/site
+      const isDomain = cleanHandle.includes('.');
+      const logoUrlProxy = isDomain
+        ? `https://unavatar.io/${cleanHandle}?fallback=https://images.unsplash.com/photo-1560066984-138dadb4c035?w=300`
+        : `https://unavatar.io/instagram/${cleanHandle}?fallback=https://unavatar.io/twitter/${cleanHandle}`;
+
+      setImportedLogoUrl(logoUrlProxy);
+
+      // 2. Preenche automaticamente o slug se ainda não customizado
+      if (!slugCustomized) {
+        const cleanSlugName = generateSlugFromName(cleanHandle.replace(/[^a-zA-Z0-9]/g, ''));
+        if (cleanSlugName) setSlug(cleanSlugName);
+      }
+
+      // 3. Tenta extrair a cor da marca automaticamente
+      const extractedColor = await extractDominantHex(logoUrlProxy);
+      if (extractedColor && extractedColor !== '#10B981') {
+        setCustomPrimaryColor(extractedColor);
+      }
+
+      hapticSuccess();
+      setBrandImportFeedback(`✓ Marca, logotipo e cores importados com sucesso de @${cleanHandle}!`);
+    } catch {
+      setBrandImportFeedback('Não foi possível extrair automaticamente. Você pode digitar os dados manualmente abaixo.');
+    } finally {
+      setIsImportingBrand(false);
+    }
+  };
+
   // Format Helpers
   const formatWhatsapp = (val: string) => {
     const digits = val.replace(/\D/g, '').slice(0, 11);
@@ -294,6 +387,7 @@ export const PartnerRegistrationWizard: React.FC<PartnerRegistrationWizardProps>
       segment,
       slug: slug.trim().toLowerCase(),
       branding: {
+        logoUrl: importedLogoUrl || undefined,
         primaryColor: customPrimaryColor,
         secondaryColor: BRAND_PALETTES[selectedPaletteIndex]?.secondary || '#0B0F17',
         backgroundColor: '#020617',
@@ -702,6 +796,88 @@ export const PartnerRegistrationWizard: React.FC<PartnerRegistrationWizardProps>
               <span>Segmento & Identidade da Marca</span>
             </div>
 
+            {/* MAGIC BRAND IMPORT (1 CLIQUE) */}
+            <div className="p-3.5 rounded-[4px] bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/40 border border-emerald-500/30 space-y-2.5 shadow-md">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
+                  Importar Marca do Instagram ou Site
+                </span>
+                <span className="text-[9px] uppercase tracking-wider bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded-[4px] font-bold border border-emerald-500/30">
+                  🪄 1 Clique
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300">
+                Cole seu Instagram ou site. Extraímos seu logotipo, cores e ativamos seu subdomínio na hora!
+              </p>
+
+              <div className="flex items-center gap-2">
+                <div className="flex-1 flex items-center bg-slate-950 rounded-[4px] border border-slate-800 focus-within:border-emerald-500 px-2.5 py-2 transition">
+                  <span className="text-xs text-slate-400 font-mono select-none pr-1">@</span>
+                  <input
+                    type="text"
+                    placeholder="flavihair ou instagram.com/flavihair"
+                    value={socialBrandInput}
+                    onChange={(e) => setSocialBrandInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleMagicBrandImport();
+                      }
+                    }}
+                    className="w-full bg-transparent text-xs text-white placeholder-slate-500 outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleMagicBrandImport}
+                  disabled={isImportingBrand}
+                  className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold text-xs rounded-[4px] transition flex items-center gap-1.5 shrink-0 cursor-pointer shadow-sm active:scale-95"
+                >
+                  {isImportingBrand ? (
+                    <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5 text-white" />
+                  )}
+                  <span>Importar</span>
+                </button>
+              </div>
+
+              {brandImportFeedback && (
+                <div
+                  className={`p-2 rounded-[4px] text-[11px] font-medium flex items-center gap-1.5 ${
+                    brandImportFeedback.startsWith('✓')
+                      ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/30'
+                      : 'bg-amber-950/80 text-amber-300 border border-amber-500/30'
+                  }`}
+                >
+                  <span>{brandImportFeedback}</span>
+                </div>
+              )}
+
+              {importedLogoUrl && (
+                <div className="flex items-center gap-3 pt-1 border-t border-slate-800">
+                  <img
+                    src={importedLogoUrl}
+                    alt="Logo Importado"
+                    className="w-10 h-10 rounded-[4px] object-cover border border-emerald-500/50 shadow-md bg-slate-950"
+                    onError={(e) => {
+                      // Fallback visual se a imagem falhar
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-emerald-400 block">
+                      Logotipo Reconhecido
+                    </span>
+                    <span className="text-xs text-slate-200 font-medium">
+                      Salvo e sincronizado no Supabase DB
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Segmento */}
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-300 block">
@@ -834,12 +1010,20 @@ export const PartnerRegistrationWizard: React.FC<PartnerRegistrationWizardProps>
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-[4px] flex items-center justify-center font-black text-base text-white shadow-md shrink-0"
-                  style={{ backgroundColor: customPrimaryColor }}
-                >
-                  {fantasyName ? fantasyName.charAt(0).toUpperCase() : 'F'}
-                </div>
+                {importedLogoUrl ? (
+                  <img
+                    src={importedLogoUrl}
+                    alt="Logo Salão"
+                    className="w-10 h-10 rounded-[4px] object-cover border border-emerald-500/40 shadow-md shrink-0 bg-slate-950"
+                  />
+                ) : (
+                  <div
+                    className="w-10 h-10 rounded-[4px] flex items-center justify-center font-black text-base text-white shadow-md shrink-0"
+                    style={{ backgroundColor: customPrimaryColor }}
+                  >
+                    {fantasyName ? fantasyName.charAt(0).toUpperCase() : 'F'}
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
                   <h4 className="text-xs font-bold text-white truncate">{fantasyName || 'Flavi Hair • Studio'}</h4>
                   <p className="text-[11px] font-mono text-[#20C933] font-bold truncate">

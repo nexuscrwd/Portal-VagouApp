@@ -1245,8 +1245,8 @@ export const App: React.FC = () => {
         {/* Official Brand Splash Screen (Manual de Identidade Visual) */}
         <SplashScreen durationMs={1400} />
 
-        {/* Supabase Realtime Diagnostic Toast on App Load */}
-        <SupabaseDiagnosticToast />
+        {/* Supabase Realtime Diagnostic Toast on App Load (Guardado para ativação futura quando solicitado) */}
+        {/* <SupabaseDiagnosticToast /> */}
       </main>
     </div>
   );
