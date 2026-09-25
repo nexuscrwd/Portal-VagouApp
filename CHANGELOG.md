@@ -15,6 +15,75 @@ Este arquivo registra cronologicamente todas as modificações relevantes realiz
 
 ## 📜 Registros de Alterações
 
+### [2026-09-25] — Sincronização Oficial da Tabela `client_family_members` & Protocolo de Emancipação Digital
+- **Tipo:** `[Feature / Architecture / Supabase Integration / Vagou Family]`
+- **Motivo:** Sincronização da estrutura oficial provisionada no Supabase (`bdvagouapp` - Production) para a Tríade do Vagou, implementando a tabela `client_family_members` (campos `guardian_client_id`, `name`, `relationship`, `birth_date`, `notes`, `autonomy_level`, `phone`, `email`, `emancipated_user_id`) e a amarração completa de `dependent_id` na tabela `appointments`.
+- **Arquivos Impactados:**
+  - `src/types.ts` (`FamilyMemberProfile` expandido com `birthDate`, `notes`, `autonomyLevel`, `phone`, `email`, `emancipatedUserId` e `dependentId` em `BookingAppointment`)
+  - `src/services/supabaseApi.ts` (métodos `fetchFamilyMembersFromSupabase`, `saveFamilyMemberToSupabase`, `emancipateFamilyMemberInSupabase`, `deleteFamilyMemberFromSupabase` e inserção de `dependent_id` em `createAppointmentInSupabase`)
+  - `src/components/AddFamilyMemberModal.tsx` (inclusão de campos de data de nascimento, observações para o profissional, níveis de autonomia e dados de contato para emancipação)
+  - `src/components/ProfileDrawer.tsx` (card detalhado do dependente selecionado com badge de autonomia, notas de atendimento, botões de editar e excluir)
+  - `src/App.tsx` (sincronização bidirecional do Supabase, salvamento com UUID e amarração de `dependentId` no agendamento)
+  - `CHANGELOG.md` (registro de rastreabilidade)
+
+### [2026-09-25] — Implementação do Vagou Family (Multi-Perfis & Gestão de Dependentes / Modelo Netflix)
+- **Tipo:** `[Feature / Architecture / Family Sharing / Supabase Integration]`
+- **Motivo:** Criação da funcionalidade **Vagou Family**, permitindo ao titular cadastrar dependentes (filhos/crianças, adolescentes, cônjuge), alternar o perfil ativo instantaneamente com curadoria inteligente do feed de ofertas (Modo Kids filtra serviços infantis, cortes e penteados kids) e agendamento direto com vinculação dos 4 campos acordados com o "Meu Negócio" (`client_user_id`, `client_name`, `client_phone`, `is_dependent`, `dependent_name`).
+- **Arquivos Impactados:**
+  - `src/types.ts` (`FamilyMemberProfile` interface)
+  - `src/components/AddFamilyMemberModal.tsx` (modal para cadastro ágil de filhos e cônjuge)
+  - `src/components/ProfileDrawer.tsx` (carrossel horizontal de seleção de membros da família e acionador de novo perfil)
+  - `src/components/HomeScreen.tsx` (curadoria inteligente do feed por perfil ativo, ribbon dinâmico de Modo Kids com botão "Trocar")
+  - `src/data.ts` (adição de ofertas e fotos para serviços infantis/kids)
+  - `src/App.tsx` (gerenciamento de estado de perfis familiares, persistência em localStorage e envio automático dos metadados de dependente no agendamento)
+  - `src/components/ConfirmationScreen.tsx` (exibição de selo e nome do dependente no resumo)
+  - `src/components/AgendaScreen.tsx` (badge com nome do dependente atendido na listagem de reservas)
+  - `CHANGELOG.md` (registro de rastreabilidade)
+
+### [2026-09-25] — Adição de Logout da Conta, Estado Visitante e Abertura do Modal de Autenticação
+- **Tipo:** `[Feature / Auth / ProfileDrawer / UX]`
+- **Motivo:** Implementação das opções de saída da conta ("Sair da Conta" com ícone `LogOut`), permitindo deslogar do usuário Anderson Silva para testar o fluxo de autenticação; inclusão do modo "Visitante" com botão em destaque verde `#00a033` ("Entrar ou Criar Conta") que aciona o `VagouAuthModal` e integração dos estados de sessão no `App.tsx` e `HomeScreen.tsx`.
+- **Arquivos Impactados:**
+  - `src/components/ProfileDrawer.tsx` (botões de logout rápido e completo, modo visitante e trigger do modal de auth)
+  - `src/components/HomeScreen.tsx` (avatar adaptável entre usuário logado e ícone de visitante)
+  - `src/App.tsx` (handlers `handleLogout`, `handleLoginSuccess`, sincronização de estado com localStorage e Supabase)
+  - `CHANGELOG.md` (registro de rastreabilidade)
+
+### [2026-09-25] — Implementação do Modal de Autenticação Exclusivo do Portal Vagou (Template 2)
+- **Tipo:** `[Feature / Auth / Portal UI / Supabase Integration]`
+- **Motivo:** Criação do modal de autenticação unificado (`VagouAuthModal.tsx`) para o Portal Vagou, contendo as abas ágeis "Entrar" e "Criar Conta", botão com verde `#00a033` com texto e ícones estritamente brancos (`text-white`), destaque explicativo sobre o ecossistema compartilhado com os salões parceiros e integração com Supabase Auth (`signInWithSupabaseEmail` e `signUpWithSupabase`).
+- **Arquivos Impactados:**
+  - `src/components/VagouAuthModal.tsx` (criação do modal responsivo com design mobile-first)
+  - `src/services/supabaseApi.ts` (adição do método `signInWithSupabaseEmail`)
+  - `src/App.tsx` (integração do modal com callbacks de reserva do Radar)
+  - `CHANGELOG.md` (registro de rastreabilidade)
+
+### [2026-09-25] — Alinhamento de Perfis de Consumidores (4 Perfis) & Modelos de Negócio (4 Modelos)
+- **Tipo:** `[Domain / Product Specification / Types & DB Alignment]`
+- **Motivo:** Incorporação da especificação de produto que padroniza os 4 perfis de clientes (Homem, Mulher, Não-Binário, Infantil/Dependente) e os 4 modelos de prestadores (A Domicílio/Delivery, Studio Solo, Salão com Equipe, Rede/Multi-Unidades), adicionando suporte nativo a dependentes (`is_dependent`, `dependent_name`) na criação de agendamentos no Supabase e atualizando a documentação de arquitetura.
+- **Arquivos Impactados:**
+  - `src/types.ts` (adição de `isDependent` e `dependentName` em `BookingAppointment`)
+  - `src/services/supabaseApi.ts` (inclusão de `is_dependent` e `dependent_name` no payload de `createAppointmentInSupabase`)
+  - `ARCHITECTURE.md` (inclusão da Seção 7 com os 4 perfis de clientes e 4 modelos de prestadores)
+  - `CHANGELOG.md` (registro de rastreabilidade)
+
+### [2026-09-25] — Consolidação do Dossiê 3.8: Ecossistema Distribuído & Suporte a salon_clients
+- **Tipo:** `[Architecture / Database / Ecosystem Alignment]`
+- **Motivo:** Adequação da camada de API e persistência ao Dossiê 3.8 de arquitetura distribuída, compatibilizando a criação de agendamentos (`appointments`) com as colunas padronizadas (`client_user_id`, `service_name`, `service_price`, `scheduled_date`, `origin`), integrando suporte à tabela `salon_clients` para favoritos/frequência e documentando a visão mestre do ecossistema em `ARCHITECTURE.md`.
+- **Arquivos Impactados:**
+  - `src/services/supabaseApi.ts` (atualização de `createAppointmentInSupabase` com schema 3.8 e fallback seguro; criação de `fetchClientSalonLinks` e `toggleSalonFavoriteInSupabase`)
+  - `ARCHITECTURE.md` (inclusão da Seção 6 detalhando o Ecossistema Distribuído)
+  - `CHANGELOG.md` (registro de rastreabilidade)
+
+### [2026-09-24] — Remoção Completa de Mocks e Simulações (100% Dados Reais do Supabase)
+- **Tipo:** `[Refactor / Clean Code / Database Integration / Real Data Only]`
+- **Motivo:** Remoção de todos os dados estáticos/mockados (`MOCK_OFFERS`, `INITIAL_BOOKINGS`, `INITIAL_PROFESSIONALS`, `INITIAL_PARTNER_APPOINTMENTS`), eliminação de geradores de visualizadores simulados (`Math.random()`) e transição do estado global para consultas 100% dinâmicas e em tempo real nas tabelas `service_offers`, `appointments`, `professionals` e `salons` do Supabase.
+- **Arquivos Impactados:**
+  - `src/services/supabaseApi.ts` (remoção de fallbacks mock, adição de `fetchAppointmentsFromSupabase`, `fetchProfessionalsFromSupabase`, `fetchPartnerAppointmentsFromSupabase`)
+  - `src/App.tsx` (estados iniciados com dados reais do Supabase, limpeza de imports mock)
+  - `src/components/AgendaScreen.tsx` (cadeiras de atendimento derivadas estritamente dos agendamentos reais)
+  - `CHANGELOG.md` (registro de rastreabilidade)
+
 ### [2026-09-24] — Persistência Imediata dos Dados do Responsável (Etapa 1) e CPF Opcional
 - **Tipo:** `[Feat / Database Sync / Lead Capture / UX]`
 - **Motivo:** Garantir a captura e persistência instantânea dos dados mais valiosos (Nome, E-mail, Senha e CPF opcional) logo ao clicar em "Continuar" na Etapa 1, criando o usuário no Supabase Auth e registrando preliminarmente na tabela `salons` sem perda de leads; CPF passa a ser 100% opcional para reduzir atrito de conversão.

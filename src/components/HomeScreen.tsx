@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Compass, X, ArrowLeft, Home, Smartphone, LayoutGrid, Heart, Zap, Filter, MapPin } from 'lucide-react';
-import { ServiceOffer } from '../types';
+import { Compass, X, ArrowLeft, Home, Smartphone, LayoutGrid, Heart, Zap, Filter, MapPin, User, Baby, Users } from 'lucide-react';
+import { ServiceOffer, FamilyMemberProfile } from '../types';
 import { InstallBanner } from './InstallBanner';
 import { RadarStoryModal } from './RadarStoryModal';
 import { RadarOfferCard } from './RadarOfferCard';
@@ -37,6 +37,9 @@ interface HomeScreenProps {
   onRegisterSalonNav?: (ctx: SalonNavContext | null) => void;
   onNavigateToAgenda?: () => void;
   userCoords?: UserCoordinates | null;
+  isLoggedIn?: boolean;
+  activeFamilyProfile?: FamilyMemberProfile | null;
+  onOpenAddFamilyModal?: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -60,6 +63,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onRegisterSalonNav,
   onNavigateToAgenda,
   userCoords: propUserCoords,
+  isLoggedIn = true,
+  activeFamilyProfile = null,
+  onOpenAddFamilyModal,
 }) => {
   const [internalSelectedCategory, setInternalSelectedCategory] = useState<string>('barba');
   const selectedCategory = externalSelectedCategory !== undefined ? externalSelectedCategory : internalSelectedCategory;
@@ -132,22 +138,49 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const filteredAndSortedOffers = useMemo(() => {
     let list = [...offers];
 
+    // Curadoria Inteligente por Perfil Familiar (Vagou Family / Netflix Model)
+    if (activeFamilyProfile) {
+      if (activeFamilyProfile.isKids || activeFamilyProfile.targetSegment === 'kids') {
+        // Modo Kids: filtra apenas serviços infantis, cortes e penteados kids
+        list = list.filter((o) => {
+          const title = o.serviceTitle.toLowerCase();
+          const desc = (o.description || '').toLowerCase();
+          return (
+            title.includes('infantil') ||
+            title.includes('kids') ||
+            title.includes('desenho') ||
+            title.includes('trança') ||
+            desc.includes('infantil') ||
+            desc.includes('kids') ||
+            desc.includes('criança') ||
+            title.includes('corte')
+          );
+        });
+      } else if (activeFamilyProfile.targetSegment === 'feminino') {
+        // Perfil Feminino / Esposa: prioriza cabelo, unhas, sobrancelha e estética
+        list = list.filter((o) => o.serviceCategory !== 'barba');
+      } else if (activeFamilyProfile.targetSegment === 'masculino') {
+        // Perfil Masculino: foca em cabelo e barba
+        list = list.filter((o) => o.serviceCategory === 'barba' || o.serviceCategory === 'cabelo');
+      }
+    } else {
+      // Segment filter padrão para o titular
+      if (currentSegment === 'barbearia') {
+        list = list.filter((o) => o.serviceCategory === 'barba' || o.serviceCategory === 'cabelo');
+      } else if (currentSegment === 'salao') {
+        list = list.filter(
+          (o) =>
+            o.serviceCategory === 'unhas' ||
+            o.serviceCategory === 'beleza' ||
+            o.serviceCategory === 'estetica' ||
+            o.serviceCategory === 'cabelo'
+        );
+      }
+    }
+
     // Filter by selected Salon from Stories if active
     if (selectedSalonFilter) {
       list = list.filter((o) => o.salonName === selectedSalonFilter);
-    }
-
-    // Segment filter
-    if (currentSegment === 'barbearia') {
-      list = list.filter((o) => o.serviceCategory === 'barba' || o.serviceCategory === 'cabelo');
-    } else if (currentSegment === 'salao') {
-      list = list.filter(
-        (o) =>
-          o.serviceCategory === 'unhas' ||
-          o.serviceCategory === 'beleza' ||
-          o.serviceCategory === 'estetica' ||
-          o.serviceCategory === 'cabelo'
-      );
     }
 
     // Category filter
@@ -185,7 +218,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     });
 
     return list;
-  }, [offers, selectedSalonFilter, selectedCategory, sortBy, currentSegment, activeCoords]);
+  }, [offers, selectedSalonFilter, selectedCategory, sortBy, currentSegment, activeCoords, activeFamilyProfile]);
 
   const handleOpenStory = (index: number) => {
     setActiveStoryIndex(index);
@@ -314,16 +347,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             {/* Profile Avatar Button */}
             <button
               onClick={onOpenProfileDrawer}
-              className="relative w-9 h-9 rounded overflow-hidden ring-2 ring-[#20C933]/50 hover:ring-[#20C933] transition-all cursor-pointer flex-shrink-0 flex items-center justify-center"
-              title="Meu Perfil & Configurações"
+              className="relative w-9 h-9 rounded overflow-hidden ring-2 ring-[#20C933]/50 hover:ring-[#20C933] transition-all cursor-pointer flex-shrink-0 flex items-center justify-center bg-slate-900"
+              title={isLoggedIn ? "Meu Perfil & Configurações" : "Entrar / Perfil do Usuário"}
             >
-              <img
-                src={userAvatarUrl}
-                alt={userName}
-                className="w-full h-full object-cover rounded"
-                referrerPolicy="no-referrer"
-              />
-              <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-[#20C933] border-2 border-[#151A1E]" />
+              {isLoggedIn ? (
+                <>
+                  <img
+                    src={userAvatarUrl}
+                    alt={userName}
+                    className="w-full h-full object-cover rounded"
+                    referrerPolicy="no-referrer"
+                  />
+                  <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-[#20C933] border-2 border-[#151A1E]" />
+                </>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-300">
+                  <User className="w-4 h-4 text-emerald-400" />
+                </div>
+              )}
             </button>
           </div>
         </div>
@@ -403,6 +444,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 );
               })}
             </div>
+
+            {/* Banner Ativo Vagou Family (Ex: Modo Kids Ativado) */}
+            {activeFamilyProfile && (
+              <div className="mx-3 mt-1.5 px-3 py-1.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between animate-fade-in">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                    {activeFamilyProfile.isKids ? (
+                      <Baby className="w-3.5 h-3.5" />
+                    ) : (
+                      <Users className="w-3.5 h-3.5" />
+                    )}
+                  </div>
+                  <div className="truncate">
+                    <span className="text-[11px] font-bold text-white">
+                      {activeFamilyProfile.isKids ? 'Modo Kids Ativado: ' : 'Perfil Familiar: '}
+                      <span className="text-emerald-400">{activeFamilyProfile.name}</span>
+                    </span>
+                    <p className="text-[9px] text-slate-300">
+                      {activeFamilyProfile.isKids ? 'Mostrando apenas cortes e serviços infantis' : `Filtrando para ${activeFamilyProfile.name}`}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={onOpenProfileDrawer}
+                  className="px-2 py-0.5 rounded-lg bg-emerald-500 text-white font-bold text-[9px] uppercase tracking-wider shrink-0 hover:bg-emerald-600 transition cursor-pointer"
+                >
+                  Trocar
+                </button>
+              </div>
+            )}
       </div>
 
       {/* Active Salon Filter Ribbon */}

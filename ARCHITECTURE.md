@@ -63,7 +63,41 @@ As ofertas possuem um sistema dinâmico de mídia estruturado em 3 níveis:
 
 ---
 
-## 📂 5. Estrutura de Pastas e Componentes
+## 🏛️ 6. Arquitetura Distribuída & Ecossistema Vagou (Dossiê 3.8)
+
+O Vagou opera sob um modelo de **Single Sign-On (SSO)** descentralizado que integra o **Portal Vagou (Marketplace / Radar)** com os **Apps PWAs White-Label dos Salões**:
+
+### A. Princípios Fundamentais:
+1. **Identidade Única (`auth.users`):** Uma pessoa física é única. Os mesmos login e senha servem para o Portal e para os PWAs de todos os salões parceiros.
+2. **"Efeito UAU":** Clientes que agendam pelo link de um salão têm seus dados sincronizados no portal ao fazer login, revelando seus salões frequentes e histórico unificado.
+3. **Dupla Cidadania (Cliente ⇄ Profissional):** Um usuário consumidor pode ativar o "Modo Profissional" aproveitando seus dados já existentes e obtendo seu próprio link PWA (`vagou.app/sua-marca`).
+4. **Vínculo Automático por Trigger (`handle_auto_link_salon_client`):** Cada agendamento criado em `appointments` vincula o cliente à tabela `salon_clients` sem intervenção manual.
+5. **Anti-Double Booking (`unique_professional_time`):** Trava de unicidade no banco por `(salon_id, professional_id, scheduled_date, start_time)` para impedir agendamentos sobrepostos.
+
+### B. Esquema de Tabelas do Ecossistema:
+- `auth.users`: Cadastro global de pessoa física.
+- `salons`: Estabelecimentos e marcas parceiras.
+- `professionals`: Cadeiras / membros da equipe.
+- `appointments`: Agendamentos unificados com suporte a `origin` (`portal`, `salon_pwa`, `radar_flash`), `service_type` (`IN_SALON`, `HOME_DELIVERY`) e dependentes (`is_dependent`, `dependent_name`).
+- `salon_clients`: Tabela de fidelidade, contagem de visitas e estabelecimentos favoritados.
+
+---
+
+## 👥 7. Perfis de Consumidores e Modelos de Negócio Suportados
+
+### A. Os 4 Perfis de Clientes do Ecossistema:
+1. **Homem:** Foco em barbearias, corte fade/degradê, barba e agilidade.
+2. **Mulher:** Foco em mechas, manicure/alongamento em gel, lash lifting e estética.
+3. **Não-Binário / Prefere não declarar:** Estética contemporânea, design de sobrancelha e atendimento inclusivo.
+4. **Infantil / Dependente:** Agendamentos vinculados ao responsável com opção *"Agendar para mim"* ou *"Agendar para dependente"* (`is_dependent: true`, `dependent_name`).
+
+### B. Os 4 Modelos de Prestadores de Serviço:
+1. **A Domicílio (Home Care / Delivery):** Sem endereço fixo aberto ao público; exibe taxa de deslocamento e bairros atendidos; exige endereço do cliente no agendamento.
+2. **Autônomo com Ponto Físico (Studio Solo):** 1 profissional proprietário da sua própria cadeira/estúdio.
+3. **Salão com Equipe (Dono + Colaboradores):** Múltiplos profissionais com especialidades e comissões independentes.
+4. **Rede / Multi-Unidades:** Múltiplas filiais sob a mesma titularidade com endereços e equipes distintos.
+
+
 
 ```
 /

@@ -73,6 +73,15 @@ export const ConfirmationScreen: React.FC<ConfirmationScreenProps> = ({
           </div>
 
           <div className="space-y-2 text-xs">
+            {booking.isDependent && booking.dependentName && (
+              <div className="flex justify-between items-center py-1 px-2 rounded-lg bg-emerald-950/40 border border-emerald-500/30">
+                <span className="text-emerald-400 font-bold">Atendimento para:</span>
+                <span className="font-extrabold text-white flex items-center gap-1">
+                  👶 {booking.dependentName}
+                </span>
+              </div>
+            )}
+
             <div className="flex justify-between">
               <span className="text-slate-400 font-medium">Serviço:</span>
               <span className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{booking.service}</span>

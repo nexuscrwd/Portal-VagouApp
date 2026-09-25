@@ -1,6 +1,13 @@
 import { supabase } from './supabase';
-import { ServiceOffer, BookingAppointment, SalonRegistrationPayload } from '../types';
-import { MOCK_OFFERS } from '../data';
+import {
+  ServiceOffer,
+  BookingAppointment,
+  SalonRegistrationPayload,
+  PartnerAppointmentItem,
+  PartnerProfessional,
+  FamilyMemberProfile,
+} from '../types';
+import { DEFAULT_WEEK_SCHEDULE } from '../data';
 import { triggerBrowserNotification } from '../utils/pushNotifications';
 
 export interface RpcOfferResponse {
@@ -36,7 +43,7 @@ export interface RpcOfferResponse {
 }
 
 /**
- * Busca vagas relâmpago no PostGIS usando a RPC get_offers_in_radius
+ * Busca vagas relâmpago reais no Supabase / PostGIS usando a RPC get_offers_in_radius
  */
 export async function fetchOffersFromSupabase(
   userLat = -23.5615,
@@ -53,12 +60,108 @@ export async function fetchOffersFromSupabase(
     });
 
     if (error) {
-      console.warn('[Supabase] Erro ao chamar get_offers_in_radius, usando fallback:', error.message);
-      return MOCK_OFFERS;
+      console.warn('[Supabase DB] get_offers_in_radius retornou erro:', error.message);
+      // Fallback: consulta direta na tabela service_offers
+      const { data: directData, error: directErr } = await supabase
+        .from('service_offers')
+        .select(`
+          id,
+          salon_id,
+          professional_id,
+          service_title,
+          category,
+          price,
+          original_price,
+          date_str,
+          start_time,
+          end_time,
+          status,
+          media_level,
+          video_url,
+          gallery_images,
+          expires_at,
+          salons (
+            id,
+            trade_name,
+            neighborhood,
+            address,
+            logo_url,
+            rating_avg,
+            rating_count,
+            latitude,
+            longitude
+          ),
+          professionals (
+            id,
+            name,
+            avatar_url
+          )
+        `)
+        .eq('status', 'AVAILABLE')
+        .gt('expires_at', new Date().toISOString())
+        .order('expires_at', { ascending: true });
+
+      if (directErr || !directData) {
+        return [];
+      }
+
+      return directData.map((row: any) => {
+        const salon = row.salons || {};
+        const prof = row.professionals || {};
+        const expiresDate = new Date(row.expires_at);
+        const diffMinutes = Math.max(1, Math.round((expiresDate.getTime() - Date.now()) / 60000));
+        const startTimeFormatted = row.start_time ? row.start_time.slice(0, 5) : '14:30';
+
+        const catLower = (row.category || 'cabelo').toLowerCase();
+        const validCategory: 'cabelo' | 'barba' | 'unhas' | 'beleza' | 'estetica' =
+          catLower.includes('barba')
+            ? 'barba'
+            : catLower.includes('unha')
+            ? 'unhas'
+            : catLower.includes('estet')
+            ? 'estetica'
+            : catLower.includes('beleza')
+            ? 'beleza'
+            : 'cabelo';
+
+        return {
+          id: row.id,
+          salonId: row.salon_id,
+          salonName: salon.trade_name || 'Estabelecimento',
+          salonLogo: salon.logo_url || '/logo.svg',
+          professionalName: prof.name || 'Profissional',
+          professionalAvatar: prof.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+          serviceTitle: row.service_title,
+          serviceCategory: validCategory,
+          price: Number(row.price),
+          originalPrice: row.original_price ? Number(row.original_price) : Number(row.price) * 1.3,
+          rating: Number(salon.rating_avg || 5.0),
+          ratingCount: Number(salon.rating_count || 1),
+          distance: '0.8 km',
+          distanceMeters: 800,
+          neighborhood: salon.neighborhood || 'Centro',
+          timeSlot: `Hoje • ${startTimeFormatted}`,
+          dayLabel: 'HOJE',
+          duration: '35 min',
+          imageUrl:
+            row.video_url ||
+            (row.gallery_images && row.gallery_images[0]) ||
+            'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800',
+          lat: salon.latitude || userLat,
+          lng: salon.longitude || userLng,
+          mediaLevel: (row.media_level as 1 | 2 | 3) || 1,
+          videoUrl: row.video_url,
+          galleryImages: row.gallery_images && row.gallery_images.length > 0 ? row.gallery_images : undefined,
+          expiresInMinutes: diffMinutes,
+          expiresTimestamp: expiresDate.getTime(),
+          activeViewers: 0,
+          isFlashDeal: true,
+        };
+      });
     }
 
     if (!data || data.length === 0) {
-      return MOCK_OFFERS;
+      return [];
     }
 
     return (data as RpcOfferResponse[]).map((row) => {
@@ -98,11 +201,11 @@ export async function fetchOffersFromSupabase(
         serviceCategory: validCategory,
         price: Number(row.price),
         originalPrice: row.original_price ? Number(row.original_price) : Number(row.price) * 1.3,
-        rating: Number(row.rating_avg || 4.9),
-        ratingCount: Number(row.rating_count || 32),
+        rating: Number(row.rating_avg || 5.0),
+        ratingCount: Number(row.rating_count || 1),
         distance: row.distance_km ? `${row.distance_km} km` : '0.8 km',
         distanceMeters: row.distance_meters || 800,
-        neighborhood: row.salon_neighborhood || 'Jardins',
+        neighborhood: row.salon_neighborhood || 'São Paulo',
         timeSlot: timeSlotStr,
         dayLabel: 'HOJE',
         duration: '35 min',
@@ -117,57 +220,540 @@ export async function fetchOffersFromSupabase(
         galleryImages: row.gallery_images && row.gallery_images.length > 0 ? row.gallery_images : undefined,
         expiresInMinutes: diffMinutes,
         expiresTimestamp: expiresDate.getTime(),
-        activeViewers: Math.floor(Math.random() * 6) + 3,
+        activeViewers: 0,
         isFlashDeal: true,
       };
     });
   } catch (err) {
-    console.error('[Supabase] Falha de conexão com backend:', err);
-    return MOCK_OFFERS;
+    console.error('[Supabase] Falha ao consultar ofertas no banco:', err);
+    return [];
   }
 }
 
 /**
- * Criação de Agendamento no Supabase
+ * Busca agendamentos reais do cliente no Supabase
+ */
+export async function fetchAppointmentsFromSupabase(clientId?: string): Promise<BookingAppointment[]> {
+  try {
+    let query = supabase
+      .from('appointments')
+      .select(`
+        id,
+        protocol_code,
+        salon_id,
+        professional_id,
+        offer_id,
+        client_id,
+        client_name,
+        client_phone,
+        service_title,
+        service_category,
+        service_type,
+        client_address,
+        travel_fee,
+        price,
+        date_str,
+        start_time,
+        end_time,
+        status,
+        salons (
+          id,
+          trade_name,
+          address
+        ),
+        professionals (
+          id,
+          name
+        )
+      `)
+      .order('date_str', { ascending: false });
+
+    if (clientId) {
+      query = query.eq('client_id', clientId);
+    }
+
+    const { data, error } = await query;
+
+    if (error || !data) {
+      console.warn('[Supabase DB] Erro ao buscar agendamentos:', error?.message);
+      return [];
+    }
+
+    return data.map((row: any) => {
+      const salon = row.salons || {};
+      const prof = row.professionals || {};
+      const timeClean = row.start_time ? row.start_time.slice(0, 5) : '14:30';
+
+      return {
+        id: row.id,
+        protocolCode: row.protocol_code,
+        offerId: row.offer_id,
+        salonId: row.salon_id,
+        professionalId: row.professional_id,
+        clientId: row.client_id,
+        service: row.service_title,
+        professional: prof.name || 'Profissional',
+        salonName: salon.trade_name || 'Estabelecimento',
+        dateTime: `${row.date_str} às ${timeClean}`,
+        dayGroup: row.date_str,
+        time: timeClean,
+        totalPrice: Number(row.price),
+        serviceType: row.service_type || 'IN_SALON',
+        travelFee: Number(row.travel_fee || 0),
+        clientAddress: row.client_address,
+        clientName: row.client_name,
+        clientPhone: row.client_phone,
+        status: (row.status || 'CONFIRMADO') as any,
+        address: salon.address || row.client_address || 'Endereço do Estabelecimento',
+      };
+    });
+  } catch (err) {
+    console.error('[Supabase DB] Exceção ao buscar agendamentos:', err);
+    return [];
+  }
+}
+
+/**
+ * Busca profissionais reais cadastrados no Supabase
+ */
+export async function fetchProfessionalsFromSupabase(salonId?: string): Promise<PartnerProfessional[]> {
+  try {
+    let query = supabase.from('professionals').select('*').eq('is_active', true);
+    if (salonId) {
+      query = query.eq('salon_id', salonId);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) {
+      return [];
+    }
+
+    return data.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      role: row.role || 'Profissional',
+      avatar: row.avatar_url,
+      phone: row.phone,
+      specialties: row.specialties || ['cabelo'],
+      color: row.color_hex || '#10B981',
+      slotDurationMinutes: row.slot_minutes || 45,
+      useCustomSchedule: row.use_custom_schedule || false,
+      schedule: row.schedule_config || DEFAULT_WEEK_SCHEDULE,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Busca agendamentos reais do parceiro no Supabase
+ */
+export async function fetchPartnerAppointmentsFromSupabase(salonId?: string): Promise<PartnerAppointmentItem[]> {
+  try {
+    let query = supabase
+      .from('appointments')
+      .select(`
+        id,
+        protocol_code,
+        salon_id,
+        professional_id,
+        client_name,
+        client_phone,
+        service_title,
+        service_category,
+        price,
+        date_str,
+        start_time,
+        end_time,
+        status,
+        notes,
+        professionals (
+          id,
+          name
+        )
+      `)
+      .order('date_str', { ascending: true })
+      .order('start_time', { ascending: true });
+
+    if (salonId) {
+      query = query.eq('salon_id', salonId);
+    }
+
+    const { data, error } = await query;
+    if (error || !data) {
+      return [];
+    }
+
+    return data.map((row: any) => {
+      const prof = row.professionals || {};
+      const catLower = (row.service_category || 'cabelo').toLowerCase();
+      const validCat: 'cabelo' | 'barba' | 'unhas' | 'beleza' | 'estetica' =
+        catLower.includes('barba') ? 'barba' : catLower.includes('unha') ? 'unhas' : catLower.includes('estet') ? 'estetica' : 'cabelo';
+
+      return {
+        id: row.id,
+        protocolCode: row.protocol_code,
+        professionalId: row.professional_id || 'prof-1',
+        professionalName: prof.name || 'Profissional',
+        clientName: row.client_name,
+        clientPhone: row.client_phone,
+        serviceTitle: row.service_title,
+        serviceCategory: validCat,
+        price: Number(row.price),
+        dateStr: row.date_str,
+        startTime: row.start_time ? row.start_time.slice(0, 5) : '14:30',
+        endTime: row.end_time ? row.end_time.slice(0, 5) : '15:15',
+        status: (row.status || 'CONFIRMADO') as any,
+        notes: row.notes,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Criação de Agendamento real no Supabase compatível com o Dossiê 3.8
  */
 export async function createAppointmentInSupabase(
   booking: BookingAppointment,
   clientId?: string
 ): Promise<{ success: boolean; protocol: string; error?: string }> {
   try {
-    const protocolCode = booking.protocolCode || `VG-${Math.floor(1000 + Math.random() * 9000)}`;
+    const protocolCode = booking.protocolCode || `#VGA-${Math.floor(10000 + Math.random() * 90000)}`;
     const todayStr = new Date().toISOString().split('T')[0];
+    const startTimeFormatted = booking.time ? (booking.time.length === 5 ? `${booking.time}:00` : booking.time) : '14:30:00';
 
-    const { error } = await supabase.from('appointments').insert({
+    // Objeto primário completo alinhado ao Dossiê 3.8
+    const primaryPayload: Record<string, any> = {
       protocol_code: protocolCode,
       offer_id: booking.offerId || null,
-      salon_id: booking.salonId || '00000000-0000-0000-0000-000000000001',
-      professional_id: booking.professionalId || '00000000-0000-0000-0000-000000000002',
+      salon_id: booking.salonId,
+      professional_id: booking.professionalId || null,
       client_id: clientId || null,
+      client_user_id: clientId || null,
       client_name: booking.clientName || 'Cliente Vagou',
       client_phone: booking.clientPhone || '(11) 99999-9999',
       client_email: booking.clientEmail || null,
+      is_dependent: booking.isDependent || false,
+      dependent_id: booking.dependentId || null,
+      dependent_name: booking.dependentName || null,
       service_type: booking.serviceType || 'IN_SALON',
       client_address: booking.clientAddress || booking.address || null,
       travel_fee: booking.travelFee || 0.0,
       service_title: booking.service,
+      service_name: booking.service,
       price: booking.totalPrice,
+      service_price: booking.totalPrice,
+      service_duration_minutes: 35,
       date_str: todayStr,
-      start_time: booking.time ? `${booking.time}:00` : '14:30:00',
+      scheduled_date: todayStr,
+      start_time: startTimeFormatted,
       end_time: '15:15:00',
       status: 'CONFIRMADO',
+      origin: 'portal',
       commission_fee: 1.5,
-    });
+    };
 
+    // Tentativa 1: Schema completo do Dossiê 3.8
+    const { data, error } = await supabase
+      .from('appointments')
+      .insert(primaryPayload)
+      .select('id, protocol_code')
+      .single();
+
+    if (!error && data) {
+      return { success: true, protocol: data.protocol_code || protocolCode };
+    }
+
+    // Se houve erro de schema (ex: coluna nova ainda não migrada), tenta payload simplificado
     if (error) {
-      console.warn('[Supabase] Erro ao salvar agendamento (modo local/offline ativado):', error.message);
-      return { success: true, protocol: protocolCode };
+      console.warn('[Supabase DB] Tentativa com schema 3.8 falhou, tentando fallback retrocompatível:', error.message);
+      
+      const fallbackPayload: Record<string, any> = {
+        protocol_code: protocolCode,
+        salon_id: booking.salonId,
+        service_title: booking.service,
+        price: booking.totalPrice,
+        date_str: todayStr,
+        start_time: startTimeFormatted,
+        client_name: booking.clientName || 'Cliente Vagou',
+        client_phone: booking.clientPhone || '(11) 99999-9999',
+        status: 'CONFIRMADO',
+      };
+
+      if (clientId) fallbackPayload.client_id = clientId;
+      if (booking.professionalId) fallbackPayload.professional_id = booking.professionalId;
+
+      const { data: fbData, error: fbError } = await supabase
+        .from('appointments')
+        .insert(fallbackPayload)
+        .select('id, protocol_code')
+        .single();
+
+      if (fbError) {
+        console.error('[Supabase DB] Falha no fallback de agendamento:', fbError.message);
+        return { success: false, protocol: protocolCode, error: fbError.message };
+      }
+
+      return { success: true, protocol: fbData?.protocol_code || protocolCode };
     }
 
     return { success: true, protocol: protocolCode };
   } catch (err: any) {
-    console.error('[Supabase] Erro de rede ao agendar:', err);
-    return { success: true, protocol: booking.protocolCode };
+    console.error('[Supabase DB] Exceção ao agendar:', err);
+    return { success: false, protocol: booking.protocolCode, error: err?.message };
+  }
+}
+
+/**
+ * ============================================================================
+ * VAGOU FAMILY & PROTOCOLO DE EMANCIPAÇÃO DIGITAL DE DEPENDENTES
+ * Tabela Oficial: client_family_members
+ * ============================================================================
+ */
+
+/**
+ * Busca todos os membros familiares/dependentes vinculados ao titular
+ */
+export async function fetchFamilyMembersFromSupabase(guardianClientId: string): Promise<FamilyMemberProfile[]> {
+  try {
+    const { data, error } = await supabase
+      .from('client_family_members')
+      .select('*')
+      .eq('guardian_client_id', guardianClientId)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.warn('[Supabase Family] Aviso ao consultar client_family_members:', error.message);
+      return [];
+    }
+
+    return (data || []).map((row: any) => {
+      const rel = row.relationship || 'outro';
+      const isKids = rel === 'filho_kids' || (row.notes && row.notes.toLowerCase().includes('kids'));
+      let targetSegment: FamilyMemberProfile['targetSegment'] = 'todos';
+      if (rel === 'filho_kids') targetSegment = 'kids';
+      else if (rel === 'esposa') targetSegment = 'feminino';
+      else if (rel === 'esposo') targetSegment = 'masculino';
+
+      return {
+        id: row.id,
+        guardianClientId: row.guardian_client_id,
+        name: row.name,
+        relationship: rel,
+        birthDate: row.birth_date,
+        targetSegment,
+        avatarUrl: row.avatar_url,
+        avatarEmoji: row.avatar_emoji,
+        notes: row.notes,
+        autonomyLevel: row.autonomy_level || (isKids ? 'parent_controlled' : 'teen_assisted'),
+        phone: row.phone,
+        email: row.email,
+        emancipatedUserId: row.emancipated_user_id,
+        isKids,
+        createdAt: row.created_at,
+      };
+    });
+  } catch (err) {
+    console.warn('[Supabase Family] Exceção ao buscar membros da família:', err);
+    return [];
+  }
+}
+
+/**
+ * Salva ou atualiza um membro da família no Supabase
+ */
+export async function saveFamilyMemberToSupabase(
+  member: Partial<FamilyMemberProfile>,
+  guardianClientId: string
+): Promise<{ success: boolean; data?: FamilyMemberProfile; error?: string }> {
+  try {
+    const payload: Record<string, any> = {
+      guardian_client_id: guardianClientId,
+      name: member.name?.trim(),
+      relationship: member.relationship || 'filho_kids',
+      birth_date: member.birthDate || null,
+      avatar_url: member.avatarUrl || null,
+      avatar_emoji: member.avatarEmoji || null,
+      notes: member.notes || null,
+      autonomy_level: member.autonomyLevel || (member.isKids ? 'parent_controlled' : 'teen_assisted'),
+      phone: member.phone || null,
+      email: member.email || null,
+    };
+
+    if (member.id && !member.id.startsWith('fam-demo-') && !member.id.startsWith('fam-enzo-') && !member.id.startsWith('fam-mariana-')) {
+      // Atualização
+      const { data, error } = await supabase
+        .from('client_family_members')
+        .update(payload)
+        .eq('id', member.id)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      return {
+        success: true,
+        data: {
+          id: data.id,
+          guardianClientId: data.guardian_client_id,
+          name: data.name,
+          relationship: data.relationship,
+          birthDate: data.birth_date,
+          targetSegment: member.targetSegment || 'todos',
+          avatarUrl: data.avatar_url,
+          avatarEmoji: data.avatar_emoji,
+          notes: data.notes,
+          autonomyLevel: data.autonomy_level,
+          phone: data.phone,
+          email: data.email,
+          emancipatedUserId: data.emancipated_user_id,
+          isKids: member.isKids,
+        },
+      };
+    } else {
+      // Inserção
+      const { data, error } = await supabase
+        .from('client_family_members')
+        .insert(payload)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      return {
+        success: true,
+        data: {
+          id: data.id,
+          guardianClientId: data.guardian_client_id,
+          name: data.name,
+          relationship: data.relationship,
+          birthDate: data.birth_date,
+          targetSegment: member.targetSegment || 'todos',
+          avatarUrl: data.avatar_url,
+          avatarEmoji: data.avatar_emoji,
+          notes: data.notes,
+          autonomyLevel: data.autonomy_level,
+          phone: data.phone,
+          email: data.email,
+          emancipatedUserId: data.emancipated_user_id,
+          isKids: member.isKids,
+        },
+      };
+    }
+  } catch (err: any) {
+    console.error('[Supabase Family] Erro ao gravar membro da família:', err);
+    return { success: false, error: err?.message || 'Falha ao salvar no banco' };
+  }
+}
+
+/**
+ * Protocolo de Emancipação Digital de Dependente:
+ * Transfere a autonomia do dependente para conta própria (teen/adulto)
+ */
+export async function emancipateFamilyMemberInSupabase(
+  memberId: string,
+  email: string,
+  phone: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('client_family_members')
+      .update({
+        autonomy_level: 'emancipated',
+        email: email.trim().toLowerCase(),
+        phone: phone.trim(),
+      })
+      .eq('id', memberId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Supabase Family] Falha na emancipação digital:', err);
+    return { success: false, error: err?.message };
+  }
+}
+
+/**
+ * Exclui um membro da família do Supabase
+ */
+export async function deleteFamilyMemberFromSupabase(memberId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await supabase
+      .from('client_family_members')
+      .delete()
+      .eq('id', memberId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Supabase Family] Falha ao excluir membro:', err);
+    return { success: false, error: err?.message };
+  }
+}
+
+/**
+ * Busca salões favoritos / frequentes do cliente na tabela salon_clients (Dossiê 3.8)
+ */
+export async function fetchClientSalonLinks(clientUserId: string) {
+  try {
+    const { data, error } = await supabase
+      .from('salon_clients')
+      .select(`
+        id,
+        salon_id,
+        is_favorite,
+        is_registered_member,
+        total_appointments,
+        last_visit_at,
+        salons (
+          id,
+          trade_name,
+          neighborhood,
+          address,
+          logo_url,
+          slug
+        )
+      `)
+      .eq('client_user_id', clientUserId)
+      .order('last_visit_at', { ascending: false });
+
+    if (error) {
+      console.warn('[Supabase DB] Erro ao buscar salon_clients:', error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error('[Supabase DB] Exceção ao buscar salon_clients:', err);
+    return [];
+  }
+}
+
+/**
+ * Alterna favorito do salão na tabela salon_clients
+ */
+export async function toggleSalonFavoriteInSupabase(
+  salonId: string,
+  clientUserId: string,
+  isFavorite: boolean
+): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('salon_clients')
+      .upsert({
+        salon_id: salonId,
+        client_user_id: clientUserId,
+        is_favorite: isFavorite,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'salon_id,client_user_id' });
+
+    if (error) {
+      console.warn('[Supabase DB] Erro ao atualizar favorito em salon_clients:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('[Supabase DB] Exceção ao atualizar favorito:', err);
+    return false;
   }
 }
 
@@ -249,6 +835,29 @@ export async function signOutClient() {
 export async function getClientSession() {
   const { data } = await supabase.auth.getSession();
   return data.session?.user || null;
+}
+
+/**
+ * Login de Usuário (Cliente ou Parceiro) com E-mail e Senha no Supabase
+ */
+export async function signInWithSupabaseEmail(
+  email: string,
+  password: string
+): Promise<{ user: any; session: any; error?: string }> {
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+    if (error) {
+      console.warn('[Supabase Auth] Erro ao autenticar:', error.message);
+      return { user: null, session: null, error: error.message };
+    }
+    return { user: data.user, session: data.session };
+  } catch (err: any) {
+    console.error('[Supabase Auth] Exceção no login:', err);
+    return { user: null, session: null, error: err?.message || 'Erro de conexão no login' };
+  }
 }
 
 /**

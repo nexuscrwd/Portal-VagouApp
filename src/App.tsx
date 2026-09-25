@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ScreenId,
   PartnerScreenId,
@@ -9,12 +9,7 @@ import {
   PartnerAppointmentItem,
   DayScheduleConfig,
 } from './types';
-import {
-  MOCK_OFFERS,
-  INITIAL_BOOKINGS,
-  INITIAL_PROFESSIONALS,
-  INITIAL_PARTNER_APPOINTMENTS,
-} from './data';
+import { DEFAULT_WEEK_SCHEDULE } from './data';
 import { HomeScreen } from './components/HomeScreen';
 import { PinterestExploreScreen } from './components/PinterestExploreScreen';
 import { MapScreen } from './components/MapScreen';
@@ -27,7 +22,9 @@ import { ProfileScreen } from './components/ProfileScreen';
 import { BottomNav, SalonNavContext } from './components/BottomNav';
 import { SearchModal } from './components/SearchModal';
 import { ProfileDrawer } from './components/ProfileDrawer';
+import { VagouAuthModal } from './components/VagouAuthModal';
 import { InterestOnboardingModal } from './components/InterestOnboardingModal';
+import { AddFamilyMemberModal } from './components/AddFamilyMemberModal';
 import { InstallModal } from './components/InstallModal';
 import { PartnerAgendaScreen } from './components/PartnerAgendaScreen';
 import { PartnerScheduleConfigScreen } from './components/PartnerScheduleConfigScreen';
@@ -44,17 +41,24 @@ import { useTheme } from './context/ThemeContext';
 import { hapticSuccess } from './utils/haptics';
 import {
   fetchOffersFromSupabase,
+  fetchAppointmentsFromSupabase,
+  fetchProfessionalsFromSupabase,
+  fetchPartnerAppointmentsFromSupabase,
   createAppointmentInSupabase,
   subscribeToRealtimeOffers,
   createProfessionalInSupabase,
   createServiceOfferInSupabase,
+  signOutClient,
+  fetchFamilyMembersFromSupabase,
+  saveFamilyMemberToSupabase,
+  deleteFamilyMemberFromSupabase,
 } from './services/supabaseApi';
 import {
   getDeviceCoordinates,
   UserCoordinates,
 } from './utils/geolocation';
 import { subscribeToWebPush } from './utils/pushNotifications';
-import { SalonRegistrationPayload, PartnerOnboardingData } from './types';
+import { SalonRegistrationPayload, PartnerOnboardingData, FamilyMemberProfile } from './types';
 
 export const App: React.FC = () => {
   const { isDark } = useTheme();
@@ -64,10 +68,10 @@ export const App: React.FC = () => {
   // Client Navigation State
   const [currentScreen, setCurrentScreen] = useState<ScreenId>('home');
   const [salonNavContext, setSalonNavContext] = useState<SalonNavContext | null>(null);
-  const [offers, setOffers] = useState<ServiceOffer[]>(MOCK_OFFERS);
-  const [selectedOffer, setSelectedOffer] = useState<ServiceOffer>(MOCK_OFFERS[0]);
-  const [bookings, setBookings] = useState<BookingAppointment[]>(INITIAL_BOOKINGS);
-  const [lastBooking, setLastBooking] = useState<BookingAppointment>(INITIAL_BOOKINGS[0]);
+  const [offers, setOffers] = useState<ServiceOffer[]>([]);
+  const [selectedOffer, setSelectedOffer] = useState<ServiceOffer | null>(null);
+  const [bookings, setBookings] = useState<BookingAppointment[]>([]);
+  const [lastBooking, setLastBooking] = useState<BookingAppointment | null>(null);
   const [userCoords, setUserCoords] = useState<UserCoordinates | null>(null);
   const [isGpsLoading, setIsGpsLoading] = useState<boolean>(true);
 
@@ -75,6 +79,207 @@ export const App: React.FC = () => {
   const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState<boolean>(false);
   const [isInterestModalOpen, setIsInterestModalOpen] = useState<boolean>(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authPendingOffer, setAuthPendingOffer] = useState<ServiceOffer | null>(null);
+
+  // Estado de Autenticação do Usuário
+  const [currentUser, setCurrentUser] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem('vagou_current_user');
+      if (saved) return JSON.parse(saved);
+      // Por padrão, se não tiver sido feito logout explícito, inicializa com Anderson Silva
+      const isLoggedOut = localStorage.getItem('vagou_logged_out') === 'true';
+      if (isLoggedOut) return null;
+
+      const savedProfile = localStorage.getItem('vagou_private_user_profile');
+      if (savedProfile) {
+        const p = JSON.parse(savedProfile);
+        return {
+          id: 'user-anderson-silva',
+          email: p.email || 'anderson.silva@email.com',
+          user_metadata: { full_name: p.fullName || 'Anderson Silva', phone: p.phone || '(11) 98765-4321' },
+        };
+      }
+      return {
+        id: 'user-anderson-silva',
+        email: 'anderson.silva@email.com',
+        user_metadata: { full_name: 'Anderson Silva', phone: '(11) 98765-4321' },
+      };
+    } catch {
+      return null;
+    }
+  });
+
+  const handleLogout = async () => {
+    try {
+      localStorage.setItem('vagou_logged_out', 'true');
+      localStorage.removeItem('vagou_current_user');
+      localStorage.removeItem('vagou_private_user_profile');
+      await signOutClient();
+    } catch (err) {
+      console.warn('Erro ao sair:', err);
+    }
+    setCurrentUser(null);
+  };
+
+  const handleLoginSuccess = (user: any) => {
+    setCurrentUser(user);
+    try {
+      localStorage.removeItem('vagou_logged_out');
+      localStorage.setItem('vagou_current_user', JSON.stringify(user));
+      const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Cliente Vagou';
+      localStorage.setItem('vagou_private_user_profile', JSON.stringify({
+        fullName,
+        email: user.email || '',
+        phone: user.user_metadata?.phone || '',
+        address: 'São Paulo, SP',
+      }));
+    } catch {}
+  };
+
+  // --- Vagou Family: Sub-perfis / Dependentes (Modelo Netflix / Uber Family) ---
+  const [familyProfiles, setFamilyProfiles] = useState<FamilyMemberProfile[]>(() => {
+    try {
+      const saved = localStorage.getItem('vagou_family_profiles');
+      if (saved) return JSON.parse(saved);
+      // Perfis de demonstração padrão (Filho Kids + Esposa)
+      return [
+        {
+          id: 'fam-enzo-kids',
+          name: 'Enzo Silva',
+          relationship: 'filho_kids',
+          birthDate: '2018-05-14',
+          targetSegment: 'kids',
+          isKids: true,
+          notes: 'Corte tesoura nas laterais com risquinho. Não usar máquina na nuca.',
+          autonomyLevel: 'parent_controlled',
+          avatarUrl: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=150&q=80',
+        },
+        {
+          id: 'fam-mariana-esposa',
+          name: 'Mariana Silva',
+          relationship: 'esposa',
+          birthDate: '1992-11-20',
+          targetSegment: 'feminino',
+          isKids: false,
+          notes: 'Unhas em gel e cronograma capilar.',
+          autonomyLevel: 'parent_controlled',
+          avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80',
+        },
+      ];
+    } catch {
+      return [];
+    }
+  });
+
+  const [activeFamilyProfileId, setActiveFamilyProfileId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('vagou_active_family_profile_id') || 'titular';
+    } catch {
+      return 'titular';
+    }
+  });
+
+  const [isAddFamilyModalOpen, setIsAddFamilyModalOpen] = useState(false);
+  const [editingFamilyMember, setEditingFamilyMember] = useState<FamilyMemberProfile | null>(null);
+
+  // Sincroniza dependentes do Supabase quando o usuário estiver logado
+  useEffect(() => {
+    if (currentUser?.id) {
+      fetchFamilyMembersFromSupabase(currentUser.id).then((members) => {
+        if (members && members.length > 0) {
+          setFamilyProfiles(members);
+          try {
+            localStorage.setItem('vagou_family_profiles', JSON.stringify(members));
+          } catch {}
+        }
+      });
+    }
+  }, [currentUser?.id]);
+
+  const activeFamilyProfile = useMemo(() => {
+    if (activeFamilyProfileId === 'titular') return null;
+    return familyProfiles.find((f) => f.id === activeFamilyProfileId) || null;
+  }, [activeFamilyProfileId, familyProfiles]);
+
+  const handleSelectFamilyProfile = (id: string) => {
+    setActiveFamilyProfileId(id);
+    try {
+      localStorage.setItem('vagou_active_family_profile_id', id);
+    } catch {}
+  };
+
+  const handleAddOrUpdateFamilyMember = (memberData: Omit<FamilyMemberProfile, 'id'>) => {
+    if (editingFamilyMember) {
+      // Atualização
+      const updatedMember: FamilyMemberProfile = {
+        ...editingFamilyMember,
+        ...memberData,
+      };
+      const updated = familyProfiles.map((m) => (m.id === editingFamilyMember.id ? updatedMember : m));
+      setFamilyProfiles(updated);
+      try {
+        localStorage.setItem('vagou_family_profiles', JSON.stringify(updated));
+      } catch {}
+
+      if (currentUser?.id) {
+        saveFamilyMemberToSupabase(updatedMember, currentUser.id).catch((err) => {
+          console.warn('Erro ao atualizar membro no Supabase:', err);
+        });
+      }
+      setEditingFamilyMember(null);
+    } else {
+      // Novo cadastro
+      const newMember: FamilyMemberProfile = {
+        ...memberData,
+        id: `fam-${Date.now()}`,
+      };
+      const updated = [...familyProfiles, newMember];
+      setFamilyProfiles(updated);
+      setActiveFamilyProfileId(newMember.id);
+      try {
+        localStorage.setItem('vagou_family_profiles', JSON.stringify(updated));
+        localStorage.setItem('vagou_active_family_profile_id', newMember.id);
+      } catch {}
+
+      if (currentUser?.id) {
+        saveFamilyMemberToSupabase(newMember, currentUser.id).then((res) => {
+          if (res.data?.id) {
+            // Atualiza com o UUID oficial do Supabase
+            setFamilyProfiles((prev) => prev.map((m) => (m.id === newMember.id ? { ...m, id: res.data!.id } : m)));
+            setActiveFamilyProfileId(res.data.id);
+          }
+        }).catch((err) => {
+          console.warn('Erro ao salvar novo membro no Supabase:', err);
+        });
+      }
+    }
+  };
+
+  const handleEditFamilyMember = (member: FamilyMemberProfile) => {
+    setEditingFamilyMember(member);
+    setIsAddFamilyModalOpen(true);
+  };
+
+  const handleDeleteFamilyMember = (memberId: string) => {
+    const updated = familyProfiles.filter((m) => m.id !== memberId);
+    setFamilyProfiles(updated);
+    if (activeFamilyProfileId === memberId) {
+      setActiveFamilyProfileId('titular');
+      try {
+        localStorage.setItem('vagou_active_family_profile_id', 'titular');
+      } catch {}
+    }
+    try {
+      localStorage.setItem('vagou_family_profiles', JSON.stringify(updated));
+    } catch {}
+
+    if (currentUser?.id && !memberId.startsWith('fam-demo-') && !memberId.startsWith('fam-enzo-') && !memberId.startsWith('fam-mariana-')) {
+      deleteFamilyMemberFromSupabase(memberId).catch((err) => {
+        console.warn('Erro ao excluir membro do Supabase:', err);
+      });
+    }
+  };
   const [userSegment, setUserSegment] = useState<'barbearia' | 'salao' | 'todos'>(() => {
     try {
       const saved = localStorage.getItem('vagou_user_segment');
@@ -88,7 +293,6 @@ export const App: React.FC = () => {
   const loadLiveOffers = async (coordsOverride?: UserCoordinates | null) => {
     try {
       const targetCoords = coordsOverride || userCoords;
-      // Se ainda não temos as coordenadas reais, busca via navegador
       const lat = targetCoords?.lat ?? -23.5615;
       const lng = targetCoords?.lng ?? -46.6559;
 
@@ -98,13 +302,46 @@ export const App: React.FC = () => {
         25.0,
         userSegment !== 'todos' ? userSegment : null
       );
-      if (liveOffers && liveOffers.length > 0) {
-        setOffers(liveOffers);
+      setOffers(liveOffers || []);
+      if (liveOffers && liveOffers.length > 0 && !selectedOffer) {
+        setSelectedOffer(liveOffers[0]);
       }
     } catch (err) {
-      console.warn('Erro ao carregar ofertas do Supabase:', err);
+      console.warn('[Supabase Live] Erro ao carregar ofertas:', err);
+      setOffers([]);
     }
   };
+
+  // Carrega agendamentos reais do Supabase
+  const loadLiveAppointments = async () => {
+    try {
+      const liveBookings = await fetchAppointmentsFromSupabase();
+      setBookings(liveBookings || []);
+      if (liveBookings && liveBookings.length > 0 && !lastBooking) {
+        setLastBooking(liveBookings[0]);
+      }
+    } catch (err) {
+      console.warn('[Supabase DB] Erro ao carregar agendamentos:', err);
+    }
+  };
+
+  // Carrega profissionais e agenda de parceiro reais do Supabase
+  const loadPartnerData = async () => {
+    try {
+      const profs = await fetchProfessionalsFromSupabase();
+      setProfessionals(profs || []);
+
+      const appts = await fetchPartnerAppointmentsFromSupabase();
+      setPartnerAppointments(appts || []);
+    } catch (err) {
+      console.warn('[Supabase DB] Erro ao carregar dados do parceiro:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadLiveAppointments();
+    loadPartnerData();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -214,10 +451,8 @@ export const App: React.FC = () => {
 
   // Partner Navigation State
   const [partnerScreen, setPartnerScreen] = useState<PartnerScreenId>('partner-agenda');
-  const [professionals, setProfessionals] = useState<PartnerProfessional[]>(INITIAL_PROFESSIONALS);
-  const [partnerAppointments, setPartnerAppointments] = useState<PartnerAppointmentItem[]>(
-    INITIAL_PARTNER_APPOINTMENTS
-  );
+  const [professionals, setProfessionals] = useState<PartnerProfessional[]>([]);
+  const [partnerAppointments, setPartnerAppointments] = useState<PartnerAppointmentItem[]>([]);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState<boolean>(false);
   const [publishPrefill, setPublishPrefill] = useState<{
     professionalId?: string;
@@ -257,7 +492,7 @@ export const App: React.FC = () => {
           color: registeredSalonData.branding.primaryColor || '#10B981',
           slotDurationMinutes: onboardingData.primaryProfessionalSlotMinutes || 45,
           useCustomSchedule: false,
-          schedule: INITIAL_PROFESSIONALS[0]?.schedule || [],
+          schedule: JSON.parse(JSON.stringify(DEFAULT_WEEK_SCHEDULE)),
         };
         setProfessionals((prev) => [newProf, ...prev]);
 
@@ -402,6 +637,11 @@ export const App: React.FC = () => {
   const handleConfirmBooking = (offer: ServiceOffer, skipScreenChange = false) => {
     hapticSuccess();
     const newProtocol = `VG-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const isDependent = Boolean(activeFamilyProfile);
+    const dependentName = activeFamilyProfile ? activeFamilyProfile.name : undefined;
+    const clientName = isDependent ? `${dependentName} (Dep. de Anderson Silva)` : 'Anderson Silva (Você)';
+
     const newBooking: BookingAppointment = {
       protocolCode: newProtocol,
       offerId: offer.id,
@@ -416,8 +656,11 @@ export const App: React.FC = () => {
       totalPrice: offer.price,
       serviceType: offer.homeDeliveryEnabled ? 'HOME_DELIVERY' : 'IN_SALON',
       travelFee: offer.homeDeliveryTravelFee || 0,
-      clientName: 'Anderson Silva (Você)',
+      clientName: isDependent ? 'Anderson Silva' : 'Anderson Silva (Você)',
       clientPhone: '(11) 98765-4321',
+      isDependent,
+      dependentId: activeFamilyProfile ? activeFamilyProfile.id : undefined,
+      dependentName,
       status: 'EM ANDAMENTO',
       address: `${offer.neighborhood} - São Paulo, SP`,
     };
@@ -425,7 +668,7 @@ export const App: React.FC = () => {
     setBookings([newBooking, ...bookings]);
     setLastBooking(newBooking);
 
-    // Persiste no Supabase assincronamente
+    // Persiste no Supabase assincronamente (com os 4 campos acordados com o "Meu Negócio")
     createAppointmentInSupabase(newBooking).catch((err) => {
       console.warn('Erro ao salvar agendamento no Supabase:', err);
     });
@@ -438,7 +681,7 @@ export const App: React.FC = () => {
       protocolCode: newProtocol,
       professionalId: matchingProf.id,
       professionalName: matchingProf.name,
-      clientName: 'Anderson Silva (Você)',
+      clientName,
       clientPhone: '+5511987654321',
       serviceTitle: offer.serviceTitle,
       serviceCategory: offer.serviceCategory,
@@ -447,7 +690,9 @@ export const App: React.FC = () => {
       startTime: offer.timeSlot.replace('Hoje • ', '').replace('Amanhã • ', ''),
       endTime: '15:15',
       status: 'CONFIRMADO',
-      notes: 'Agendamento imediato realizado pelo app do cliente.',
+      notes: isDependent
+        ? `Atendimento para dependente: ${dependentName} (Responsável: Anderson Silva).`
+        : 'Agendamento imediato realizado pelo app do cliente.',
     };
     setPartnerAppointments((prev) => [newPartnerAppt, ...prev]);
 
@@ -627,6 +872,10 @@ export const App: React.FC = () => {
                   }}
                   onRegisterSalonNav={setSalonNavContext}
                   onNavigateToAgenda={() => setCurrentScreen('agenda')}
+                  userName={currentUser?.user_metadata?.full_name || currentUser?.email || 'Visitante'}
+                  isLoggedIn={Boolean(currentUser)}
+                  activeFamilyProfile={activeFamilyProfile}
+                  onOpenAddFamilyModal={() => setIsAddFamilyModalOpen(true)}
                 />
               )}
 
@@ -672,7 +921,7 @@ export const App: React.FC = () => {
                 />
               )}
 
-              {currentScreen === 'detalhe-oferta' && (
+              {currentScreen === 'detalhe-oferta' && selectedOffer && (
                 <OfferDetailScreen
                   offer={selectedOffer}
                   onBack={() => setCurrentScreen('home')}
@@ -683,7 +932,7 @@ export const App: React.FC = () => {
                 />
               )}
 
-              {currentScreen === 'confirmacao' && (
+              {currentScreen === 'confirmacao' && lastBooking && (
                 <ConfirmationScreen
                   booking={lastBooking}
                   onNavigateToAgenda={() => setCurrentScreen('agenda')}
@@ -776,6 +1025,33 @@ export const App: React.FC = () => {
               onOpenInterestConfig={() => setIsInterestModalOpen(true)}
               currentSegment={userSegment}
               onSelectSegment={handleSelectSegment}
+              userName={currentUser?.user_metadata?.full_name || currentUser?.email || 'Visitante'}
+              isLoggedIn={Boolean(currentUser)}
+              onLogout={handleLogout}
+              onOpenAuthModal={() => {
+                setIsProfileDrawerOpen(false);
+                setIsAuthModalOpen(true);
+              }}
+              familyProfiles={familyProfiles}
+              activeFamilyProfileId={activeFamilyProfileId}
+              onSelectFamilyProfile={handleSelectFamilyProfile}
+              onOpenAddFamilyModal={() => {
+                setEditingFamilyMember(null);
+                setIsAddFamilyModalOpen(true);
+              }}
+              onEditFamilyMember={handleEditFamilyMember}
+              onDeleteFamilyMember={handleDeleteFamilyMember}
+            />
+
+            {/* Modal de Cadastro de Dependente / Família (Vagou Family) */}
+            <AddFamilyMemberModal
+              isOpen={isAddFamilyModalOpen}
+              initialMember={editingFamilyMember}
+              onClose={() => {
+                setIsAddFamilyModalOpen(false);
+                setEditingFamilyMember(null);
+              }}
+              onAddMember={handleAddOrUpdateFamilyMember}
             />
 
             {/* Interest Onboarding / Personalization Modal */}
@@ -797,6 +1073,24 @@ export const App: React.FC = () => {
               onConfirmBooking={handleConfirmBooking}
               favorites={favorites}
               onToggleFavorite={handleToggleFavorite}
+            />
+
+            {/* Modal de Autenticação Exclusivo do Portal Vagou */}
+            <VagouAuthModal
+              isOpen={isAuthModalOpen}
+              onClose={() => {
+                setIsAuthModalOpen(false);
+                setAuthPendingOffer(null);
+              }}
+              targetOfferTitle={authPendingOffer?.serviceTitle}
+              onSuccess={(user) => {
+                handleLoginSuccess(user);
+                setIsAuthModalOpen(false);
+                if (authPendingOffer) {
+                  handleConfirmBooking(authPendingOffer);
+                  setAuthPendingOffer(null);
+                }
+              }}
             />
           </div>
         )}

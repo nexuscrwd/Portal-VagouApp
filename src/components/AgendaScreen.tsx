@@ -38,29 +38,22 @@ export const AgendaScreen: React.FC<AgendaScreenProps> = ({
     professionalName: string;
   } | null>(null);
 
-  // Dados das Cadeiras em Atendimento Ao Vivo
-  const activeChairsData = [
-    {
-      id: 'chair-1',
-      number: 'Cadeira 01',
-      professional: 'Carlos',
-      serviceTitle: 'Corte Degradê',
-      remainingMinutes: 14,
-      totalMinutes: 40,
-      endTime: '14:15',
+  // Cadeiras em atendimento real derivadas dos agendamentos
+  const activeChairsData = useMemo(() => {
+    const active = bookings.filter(
+      (b) => b.status === 'EM ANDAMENTO' || (b.status as string) === 'EM_ATENDIMENTO'
+    );
+    return active.map((b, idx) => ({
+      id: b.id || `chair-${idx + 1}`,
+      number: `Cadeira 0${idx + 1}`,
+      professional: b.professional || 'Profissional',
+      serviceTitle: b.service || 'Serviço',
+      remainingMinutes: 15,
+      totalMinutes: 45,
+      endTime: b.time || '15:00',
       isCurrentUser: true,
-    },
-    {
-      id: 'chair-2',
-      number: 'Cadeira 02',
-      professional: 'Mateus',
-      serviceTitle: 'Barba Terapia',
-      remainingMinutes: 8,
-      totalMinutes: 35,
-      endTime: '14:10',
-      isCurrentUser: false,
-    },
-  ];
+    }));
+  }, [bookings]);
 
   // Grade de Horários do Dia em Tempo Real (4 Colunas)
   const agendaTimeSlots = [
@@ -556,7 +549,12 @@ export const AgendaScreen: React.FC<AgendaScreenProps> = ({
                                 <p className={`text-[10px] truncate ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                                   {item.salonName} • {item.professional}
                                 </p>
-                                <div className="mt-1 flex items-center gap-1.5">
+                                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                                  {item.isDependent && item.dependentName && (
+                                    <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-500 text-white flex items-center gap-0.5">
+                                      👶 {item.dependentName}
+                                    </span>
+                                  )}
                                   <span
                                     className={`text-[9px] font-bold px-1.5 py-0.2 rounded-sm uppercase tracking-wider ${
                                       item.status === 'EM ANDAMENTO'

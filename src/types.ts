@@ -137,9 +137,32 @@ export interface BookingAppointment {
   clientName?: string;
   clientPhone?: string;
   clientEmail?: string;
+  isDependent?: boolean;
+  dependentId?: string;
+  dependentName?: string;
   status: 'EM ANDAMENTO' | 'CONFIRMADO' | 'AGENDADO' | 'CONCLUÍDO' | 'CANCELADO';
   address: string;
   qrCodeMock?: string;
+}
+
+export type FamilyAutonomyLevel = 'parent_controlled' | 'teen_assisted' | 'emancipated';
+
+export interface FamilyMemberProfile {
+  id: string;
+  guardianClientId?: string;
+  name: string;
+  relationship: 'titular' | 'filho_kids' | 'filho_teen' | 'esposa' | 'esposo' | 'pais' | 'outro';
+  birthDate?: string;
+  targetSegment: 'kids' | 'feminino' | 'masculino' | 'todos';
+  avatarUrl?: string;
+  avatarEmoji?: string;
+  notes?: string;
+  autonomyLevel?: FamilyAutonomyLevel;
+  phone?: string;
+  email?: string;
+  emancipatedUserId?: string;
+  isKids?: boolean;
+  createdAt?: string;
 }
 
 export interface DriveFile {
