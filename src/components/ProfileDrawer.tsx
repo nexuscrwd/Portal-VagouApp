@@ -62,6 +62,7 @@ interface ProfileDrawerProps {
   onOpenAddFamilyModal?: () => void;
   onEditFamilyMember?: (member: FamilyMemberProfile) => void;
   onDeleteFamilyMember?: (id: string) => void;
+  onSwitchToAdminMode?: () => void;
 }
 
 export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
@@ -85,6 +86,7 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
   onOpenAddFamilyModal,
   onEditFamilyMember,
   onDeleteFamilyMember,
+  onSwitchToAdminMode,
 }) => {
   const { isDark, toggleTheme } = useTheme();
 
@@ -800,6 +802,29 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
               </button>
+
+              {onSwitchToAdminMode && (
+                <button
+                  id="btn-drawer-switch-admin"
+                  onClick={() => {
+                    onClose();
+                    onSwitchToAdminMode();
+                  }}
+                  className={`w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition cursor-pointer ${
+                    isDark
+                      ? 'bg-emerald-950/30 hover:bg-emerald-950/60 border-emerald-500/30 text-emerald-300'
+                      : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span className="text-xs font-bold">Torre de Controle (Master Admin)</span>
+                  </div>
+                  <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Master
+                  </span>
+                </button>
+              )}
             </div>
 
             {/* Botão Sair da Conta */}

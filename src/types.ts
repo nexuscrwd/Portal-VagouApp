@@ -19,7 +19,7 @@ export type PartnerScreenId =
   | 'partner-config'
   | 'partner-profile';
 
-export type AppMode = 'client' | 'partner';
+export type AppMode = 'client' | 'partner' | 'admin';
 
 export interface TimeBreak {
   id: string;

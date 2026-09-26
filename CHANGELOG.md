@@ -15,6 +15,23 @@ Este arquivo registra cronologicamente todas as modificações relevantes realiz
 
 ## 📜 Registros de Alterações
 
+### [2026-09-26] — Criação do Super Admin Master App (Torre de Controle & Gestão Centralizada)
+- **Tipo:** `[Feature / Super Admin / Dashboard / Supabase DB / Architecture]`
+- **Motivo:** Implementação da Torre de Controle Administrativa do ecossistema VagouApp, inspirada na referência de design de dashboard executivo (estilo TeamHub). Fornece controle total sobre estabelecimentos cadastrados, auditoria e moderação de cadastros, monitoramento de agendamentos em tempo real, KPIs do ecossistema e correção de dados críticos via Supabase.
+- **Arquivos Criados/Impactados:**
+  - `src/types/admin.ts`: Definição de tipos TypeScript para `AdminSalonItem`, `AdminDashboardMetrics`, `AdminScreenId`, filtros.
+  - `src/components/admin/AdminMasterApp.tsx`: Orquestrador master com suporte desktop completo e gaveta móvel responsiva.
+  - `src/components/admin/AdminSidebar.tsx`: Barra lateral com navegação em 5 telas, status Supabase em tempo real e alternadores de app.
+  - `src/components/admin/AdminHeader.tsx`: Cabeçalho com breadcrumbs, busca global integrada, botão de recarregar e perfil do Super Admin.
+  - `src/components/admin/AdminKpiCards.tsx`: 5 cartões de KPIs (Total de Salões, Agendamentos Hoje, Salões Ativos, Moderação Pendente, Vagas no Radar).
+  - `src/components/admin/AdminSalonsList.tsx`: Visualização dupla (Tabela e Cartões em Grid), busca em tempo real, filtros de status e segmento.
+  - `src/components/admin/AdminEditSalonModal.tsx`: Modal para correção de dados críticos (Nome, Razão Social, Subdomínio, Status, Categoria, Selo Verificado, Contato, Endereço e Cores) com sincronização direta no Supabase.
+  - `src/components/admin/AdminModerationPanel.tsx`: Painel focado em salões aguardando aprovação ou com dados incompletos.
+  - `src/services/supabaseApi.ts`: Adicionadas funções `fetchAdminSalons`, `updateAdminSalon` e `fetchAdminDashboardMetrics`.
+  - `src/App.tsx`: Suporte a `appMode === 'admin'` via parâmetro `?mode=admin` e alternador no menu lateral.
+  - `src/components/ProfileDrawer.tsx`: Adicionado botão "Torre de Controle (Master Admin)" para alternar rapidamente entre o app do cliente e o admin.
+  - `CHANGELOG.md`: Registro da versão.
+
 ### [2026-09-25] — Remoção de Popup de Diagnóstico do Supabase (`SupabaseDiagnosticToast`)
 - **Tipo:** `[UI / Cleanup / Popup]`
 - **Motivo:** Remoção da exibição do popup flutuante de diagnóstico do Supabase no topo da tela. O código do componente foi 100% preservado em `src/components/SupabaseDiagnosticToast.tsx` para ser reativado imediatamente quando solicitado pelo usuário.

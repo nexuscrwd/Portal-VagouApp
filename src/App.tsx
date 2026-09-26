@@ -36,6 +36,7 @@ import { SplashScreen } from './components/SplashScreen';
 import { PartnerRegistrationWizard } from './components/PartnerRegistrationWizard';
 import { PartnerOnboardingModal } from './components/PartnerOnboardingModal';
 import { SupabaseDiagnosticToast } from './components/SupabaseDiagnosticToast';
+import { AdminMasterApp } from './components/admin/AdminMasterApp';
 import { scheduleAppointmentReminder } from './utils/notifications';
 import { formatSlotDateTime } from './utils/dateFormatter';
 import { useTheme } from './context/ThemeContext';
@@ -63,8 +64,15 @@ import { SalonRegistrationPayload, PartnerOnboardingData, FamilyMemberProfile } 
 
 export const App: React.FC = () => {
   const { isDark } = useTheme();
-  // App Mode: 'client' (User looking for appointment) or 'partner' (Salon Owner / Professional)
-  const [appMode, setAppMode] = useState<AppMode>('client');
+  // App Mode: 'client' (User looking for appointment), 'partner' (Salon Owner / Professional), or 'admin' (Master Admin)
+  const [appMode, setAppMode] = useState<AppMode>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const modeParam = urlParams.get('mode') || urlParams.get('admin');
+      if (modeParam === 'admin' || modeParam === 'true') return 'admin';
+    }
+    return 'client';
+  });
 
   // Client Navigation State
   const [currentScreen, setCurrentScreen] = useState<ScreenId>('home');
@@ -848,6 +856,22 @@ export const App: React.FC = () => {
 
   const [clientSelectedCategory, setClientSelectedCategory] = useState<string>('flash');
 
+  // SUPER ADMIN MASTER MODE (Full Desktop / Tablet Responsive Torre de Controle)
+  if (appMode === 'admin') {
+    return (
+      <AdminMasterApp
+        onSwitchToClient={() => {
+          setAppMode('client');
+          setCurrentScreen('home');
+        }}
+        onSwitchToPartner={() => {
+          setAppMode('partner');
+          setPartnerScreen('partner-agenda');
+        }}
+      />
+    );
+  }
+
   return (
     <div className={`h-[100dvh] w-full ${isDark ? 'bg-[#151A1E]' : 'bg-slate-200'} sm:bg-slate-200 flex justify-center items-center antialiased selection:bg-[#20C933] selection:text-white overflow-hidden`}>
       {/* Real Fullscreen Mobile Container */}
@@ -1042,6 +1066,7 @@ export const App: React.FC = () => {
                 setIsRegisterWizardOpen(true);
               }}
               onOpenInterestConfig={() => setIsInterestModalOpen(true)}
+              onSwitchToAdminMode={() => setAppMode('admin')}
               currentSegment={userSegment}
               onSelectSegment={handleSelectSegment}
               userName={currentUser?.user_metadata?.full_name || currentUser?.email || 'Visitante'}
