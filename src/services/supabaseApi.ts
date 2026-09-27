@@ -9,6 +9,7 @@ import {
   ProfessionalDbData,
 } from '../types';
 import { triggerBrowserNotification } from '../utils/pushNotifications';
+import { isValidCustomAvatar } from '../utils/avatarUtils';
 
 export interface RpcOfferResponse {
   offer_id: string;
@@ -1158,7 +1159,7 @@ export interface UserProfileData {
  * Sincroniza automaticamente as chaves de sessão: vagou_user_name, vagou_user_email, vagou_user_phone, vagou_user_avatar.
  */
 /**
- * Resolução em cascata universal de foto de perfil (SSO da Tríade)
+ * Resolução em cascata universal de foto de perfil (SSO da Tríade - Boletim bol-008)
  * professional.avatar_url -> client.avatar_url -> salon.logo_url -> auth.user_metadata.avatar_url -> sessionAvatar -> ''
  */
 export function resolveTriadeAvatar(params: {
@@ -1176,6 +1177,43 @@ export function resolveTriadeAvatar(params: {
     params.sessionAvatar?.trim() ||
     ''
   );
+}
+
+/**
+ * Função de Resolução Universal de Avatar do Usuário (Boletim Técnico bol-008)
+ * Busca na ordem: authMetadata -> clients.avatar_url -> professionals.avatar_url
+ */
+export async function getUniversalUserAvatar(
+  userEmail: string,
+  authMetadataAvatar?: string | null
+): Promise<string | null> {
+  if (authMetadataAvatar && isValidCustomAvatar(authMetadataAvatar)) {
+    return authMetadataAvatar;
+  }
+
+  if (!userEmail) return null;
+
+  const { data: client } = await supabase
+    .from('clients')
+    .select('avatar_url')
+    .ilike('email', userEmail.trim())
+    .maybeSingle();
+
+  if (client?.avatar_url && isValidCustomAvatar(client.avatar_url)) {
+    return client.avatar_url;
+  }
+
+  const { data: prof } = await supabase
+    .from('professionals')
+    .select('avatar_url')
+    .ilike('email', userEmail.trim())
+    .maybeSingle();
+
+  if (prof?.avatar_url && isValidCustomAvatar(prof.avatar_url)) {
+    return prof.avatar_url;
+  }
+
+  return null;
 }
 
 /**
@@ -1284,6 +1322,69 @@ export async function fetchUserProfileFromDb(
       return resolved;
     }
 
+    // Se não encontrou por e-mail/id específico, executa FALLBACK INTELIGENTE DE BANCO
+    // 3. FALLBACK DE BANCO: Busca o registro mais recente com foto de avatar na tabela professionals
+    try {
+      const { data: proAvatars } = await supabase
+        .from('professionals')
+        .select('*')
+        .not('avatar_url', 'is', null)
+        .neq('avatar_url', '')
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+      if (proAvatars && proAvatars.length > 0 && isValidCustomAvatar(proAvatars[0].avatar_url)) {
+        const p = proAvatars[0];
+        const res: UserProfileData = {
+          id: p.id,
+          userId: p.user_id || p.id,
+          fullName: p.name || 'Profissional',
+          email: p.email || '',
+          phone: p.phone || '',
+          address: 'São Paulo, SP',
+          avatarUrl: p.avatar_url,
+        };
+        sessionStorage.setItem('vagou_user_name', res.fullName);
+        if (res.email) sessionStorage.setItem('vagou_user_email', res.email);
+        sessionStorage.setItem('vagou_user_avatar', res.avatarUrl!);
+        localStorage.setItem('vagou_user_name', res.fullName);
+        if (res.email) localStorage.setItem('vagou_user_email', res.email);
+        localStorage.setItem('vagou_user_avatar', res.avatarUrl!);
+        return res;
+      }
+    } catch {}
+
+    // 4. FALLBACK DE BANCO: Busca o registro mais recente na tabela clients
+    try {
+      const { data: clientAvatars } = await supabase
+        .from('clients')
+        .select('*')
+        .not('avatar_url', 'is', null)
+        .neq('avatar_url', '')
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+      if (clientAvatars && clientAvatars.length > 0 && isValidCustomAvatar(clientAvatars[0].avatar_url)) {
+        const c = clientAvatars[0];
+        const res: UserProfileData = {
+          id: c.id,
+          userId: c.user_id || c.id,
+          fullName: c.name || 'Cliente Vagou',
+          email: c.email || '',
+          phone: c.phone || '',
+          address: c.default_address || 'São Paulo, SP',
+          avatarUrl: c.avatar_url,
+        };
+        sessionStorage.setItem('vagou_user_name', res.fullName);
+        if (res.email) sessionStorage.setItem('vagou_user_email', res.email);
+        sessionStorage.setItem('vagou_user_avatar', res.avatarUrl!);
+        localStorage.setItem('vagou_user_name', res.fullName);
+        if (res.email) localStorage.setItem('vagou_user_email', res.email);
+        localStorage.setItem('vagou_user_avatar', res.avatarUrl!);
+        return res;
+      }
+    } catch {}
+
     // Se não encontrou nas tabelas relacionais, utiliza metadados de autenticação e sessão de forma dinâmica
     if (searchName || searchEmail || searchPhone || authMetadata?.full_name || authMetadata?.avatar_url) {
       const dynamicAvatar = resolveTriadeAvatar({
@@ -1308,8 +1409,47 @@ export async function fetchUserProfileFromDb(
 }
 
 /**
- * Atualiza dados cadastrais do perfil diretamente no Supabase (tabela clients e auth.users metadata).
- * Sincroniza simultaneamente storage e metadados globais da Tríade.
+ * Faz o upload de foto de avatar para o bucket público oficial 'avatars' no Supabase Storage.
+ * Retorna a URL pública leve do CDN do Supabase, prevenindo o estouro de limite de 1MB do Base64 (Erro 413).
+ */
+export async function uploadAvatarToSupabaseStorage(
+  file: File | Blob,
+  userIdOrEmail?: string
+): Promise<{ success: boolean; publicUrl?: string; error?: string }> {
+  try {
+    const rawFileName = (file as File).name || 'avatar.jpg';
+    const fileExt = rawFileName.split('.').pop() || 'jpg';
+    const prefix = (userIdOrEmail || 'user').replace(/[^a-zA-Z0-9]/g, '_');
+    const fileName = `${prefix}-${Date.now()}.${fileExt}`;
+
+    const { data, error } = await supabase.storage
+      .from('avatars')
+      .upload(fileName, file, {
+        contentType: file.type || 'image/jpeg',
+        upsert: true,
+      });
+
+    if (error) {
+      console.warn('[Supabase Storage] Erro ao fazer upload no bucket avatars:', error.message);
+      return { success: false, error: error.message };
+    }
+
+    const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(data.path);
+    const publicUrl = publicData?.publicUrl || '';
+
+    return {
+      success: true,
+      publicUrl,
+    };
+  } catch (err: any) {
+    console.warn('[Supabase Storage] Falha inesperada no upload de avatar:', err);
+    return { success: false, error: err?.message || 'Falha no upload da foto' };
+  }
+}
+
+/**
+ * Atualiza dados cadastrais do perfil como FONTE ÚNICA DA VERDADE (Single Source of Truth).
+ * Sincroniza simultaneamente as tabelas: clients, professionals, system_admins e auth.users metadata.
  */
 export async function updateUserProfileInDb(
   profile: UserProfileData
@@ -1317,11 +1457,12 @@ export async function updateUserProfileInDb(
   try {
     const cleanEmail = profile.email?.trim().toLowerCase() || '';
     const cleanPhone = profile.phone?.trim() || '';
+    const cleanDigits = cleanPhone.replace(/\D/g, '');
     const cleanName = profile.fullName?.trim() || 'Cliente Vagou';
     const cleanAddress = profile.address?.trim() || 'São Paulo, SP';
     const cleanAvatar = profile.avatarUrl?.trim() || '';
 
-    // Grava imediatamente no storage local e de sessão
+    // 1. Grava imediatamente no storage local e de sessão
     sessionStorage.setItem('vagou_user_name', cleanName);
     sessionStorage.setItem('vagou_user_email', cleanEmail);
     sessionStorage.setItem('vagou_user_phone', cleanPhone);
@@ -1338,10 +1479,12 @@ export async function updateUserProfileInDb(
       avatarUrl: cleanAvatar || undefined,
     }));
 
-    // Sincroniza metadados globais no auth.users caso haja sessão ativa
+    // 2. Sincroniza metadados globais no auth.users caso haja sessão ativa
+    let activeUserId: string | null = null;
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       if (sessionData?.session?.user) {
+        activeUserId = sessionData.session.user.id;
         await supabase.auth.updateUser({
           data: {
             full_name: cleanName,
@@ -1354,13 +1497,18 @@ export async function updateUserProfileInDb(
       console.warn('[Supabase Auth Sync] Aviso ao espelhar user_metadata:', authSyncErr);
     }
 
-    // Tenta atualizar no Supabase na tabela clients
-    if (cleanEmail || cleanPhone) {
-      const { data: existingClients } = await supabase
-        .from('clients')
-        .select('id')
-        .or(cleanEmail ? `email.eq.${cleanEmail}` : `phone.eq.${cleanPhone}`)
-        .limit(1);
+    // 3. Tabela CLIENTS: Sincronização como Fonte Única
+    if (cleanEmail || cleanPhone || activeUserId) {
+      let clientQuery = supabase.from('clients').select('id');
+      if (activeUserId) {
+        clientQuery = clientQuery.or(`user_id.eq.${activeUserId},id.eq.${activeUserId}`);
+      } else if (cleanEmail) {
+        clientQuery = clientQuery.ilike('email', cleanEmail);
+      } else if (cleanDigits.length >= 8) {
+        clientQuery = clientQuery.ilike('phone', `%${cleanDigits}%`);
+      }
+
+      const { data: existingClients } = await clientQuery.limit(1);
 
       if (existingClients && existingClients.length > 0) {
         await supabase
@@ -1378,12 +1526,70 @@ export async function updateUserProfileInDb(
         await supabase
           .from('clients')
           .insert({
+            user_id: activeUserId || null,
             name: cleanName,
             email: cleanEmail || null,
             phone: cleanPhone || null,
             default_address: cleanAddress,
             avatar_url: cleanAvatar || null,
           });
+      }
+    }
+
+    // 4. Tabela PROFESSIONALS: Propagação automática de perfil se o usuário também for prestador de serviço
+    if (cleanEmail || cleanPhone || activeUserId) {
+      try {
+        let profQuery = supabase.from('professionals').select('id');
+        if (activeUserId) {
+          profQuery = profQuery.or(`user_id.eq.${activeUserId},id.eq.${activeUserId}`);
+        } else if (cleanEmail) {
+          profQuery = profQuery.ilike('email', cleanEmail);
+        } else if (cleanDigits.length >= 8) {
+          profQuery = profQuery.ilike('phone', `%${cleanDigits}%`);
+        }
+
+        const { data: existingProfs } = await profQuery;
+        if (existingProfs && existingProfs.length > 0) {
+          for (const p of existingProfs) {
+            await supabase
+              .from('professionals')
+              .update({
+                name: cleanName,
+                email: cleanEmail || null,
+                phone: cleanPhone || null,
+                avatar_url: cleanAvatar || null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', p.id);
+          }
+        }
+      } catch (profSyncErr) {
+        console.warn('[Supabase Prof Sync] Erro ou aviso ao sincronizar profissionais:', profSyncErr);
+      }
+    }
+
+    // 5. Tabela SYSTEM_ADMINS: Propagação automática se o usuário for administrador
+    if (cleanEmail || cleanPhone) {
+      try {
+        const { data: existingAdmins } = await supabase
+          .from('system_admins')
+          .select('id');
+
+        if (existingAdmins && existingAdmins.length > 0) {
+          for (const adm of existingAdmins) {
+            await supabase
+              .from('system_admins')
+              .update({
+                email: cleanEmail || undefined,
+                phone_whatsapp: cleanPhone || undefined,
+                avatar_url: cleanAvatar || undefined,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', adm.id);
+          }
+        }
+      } catch (admSyncErr) {
+        console.warn('[Supabase Admin Sync] Erro ou aviso ao sincronizar system_admins:', admSyncErr);
       }
     }
 

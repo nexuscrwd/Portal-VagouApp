@@ -24,18 +24,20 @@ import {
   Trash2,
   Sparkles,
   FileText,
+  Camera,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { hapticLight, hapticSuccess } from '../utils/haptics';
 import { FamilyMemberProfile } from '../types';
 import { isValidCustomAvatar } from '../utils/avatarUtils';
-import { fetchUserProfileFromDb, updateUserProfileInDb } from '../services/supabaseApi';
+import { fetchUserProfileFromDb, updateUserProfileInDb, uploadAvatarToSupabaseStorage } from '../services/supabaseApi';
 
 interface UserPrivateProfile {
   fullName: string;
   email: string;
   phone: string;
   address: string;
+  avatarUrl?: string;
 }
 
 interface ProfileDrawerProps {
@@ -50,6 +52,7 @@ interface ProfileDrawerProps {
   onSelectSegment?: (segment: 'barbearia' | 'salao' | 'todos') => void;
   userName?: string;
   userAvatarUrl?: string;
+  onAvatarUpdated?: (newUrl: string) => void;
   isLoggedIn?: boolean;
   onLogout?: () => void;
   onOpenAuthModal?: () => void;
@@ -71,6 +74,7 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
   onOpenHelpModal,
   userName = 'Cliente Vagou',
   userAvatarUrl,
+  onAvatarUpdated,
   isLoggedIn = false,
   onLogout,
   onOpenAuthModal,
@@ -156,6 +160,34 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<UserPrivateProfile>(profile);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  const handleAvatarFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    hapticLight();
+    setIsUploadingAvatar(true);
+
+    try {
+      const res = await uploadAvatarToSupabaseStorage(file, profile.email || userName || 'user');
+      if (res.success && res.publicUrl) {
+        const newUrl = res.publicUrl;
+        const updatedProfile = { ...profile, avatarUrl: newUrl };
+        setProfile(updatedProfile);
+        localStorage.setItem('vagou_user_avatar', newUrl);
+        sessionStorage.setItem('vagou_user_avatar', newUrl);
+        await updateUserProfileInDb(updatedProfile);
+        if (onAvatarUpdated) {
+          onAvatarUpdated(newUrl);
+        }
+        hapticSuccess();
+      }
+    } catch (err) {
+      console.warn('Erro no upload de foto de perfil:', err);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   const handleStartEdit = () => {
     setFormData(profile);
@@ -196,11 +228,11 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
             isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
           }`}>
             <div className="flex items-center gap-3 min-w-0">
-              <div className="relative shrink-0">
-                {isLoggedIn && isValidCustomAvatar(userAvatarUrl) ? (
-                  <>
+              <div className="relative shrink-0 group">
+                {isValidCustomAvatar(userAvatarUrl || profile.avatarUrl) ? (
+                  <div className="relative w-12 h-12">
                     <img
-                      src={userAvatarUrl!}
+                      src={(userAvatarUrl && isValidCustomAvatar(userAvatarUrl)) ? userAvatarUrl : profile.avatarUrl!}
                       alt={profile.fullName}
                       className="w-12 h-12 rounded object-cover border-2 border-[#20C933]"
                       referrerPolicy="no-referrer"
@@ -208,7 +240,7 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                     <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded bg-[#20C933] flex items-center justify-center text-white">
                       <UserCheck className="w-2.5 h-2.5 stroke-[3]" />
                     </div>
-                  </>
+                  </div>
                 ) : (
                   <div className={`w-12 h-12 rounded flex items-center justify-center ${
                     isDark
@@ -218,6 +250,22 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                     <User className="w-6 h-6 stroke-[1.8]" />
                   </div>
                 )}
+
+                <label
+                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#20C933] hover:bg-[#1bb82d] text-white flex items-center justify-center cursor-pointer shadow-md transition-transform active:scale-90"
+                  title="Trocar Foto de Perfil (Câmera / Galeria)"
+                  aria-label="Trocar Foto de Perfil"
+                >
+                  <Camera className="w-3 h-3 stroke-[2]" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="user"
+                    className="hidden"
+                    onChange={handleAvatarFileUpload}
+                    disabled={isUploadingAvatar}
+                  />
+                </label>
               </div>
 
               <div className="flex-1 min-w-0">

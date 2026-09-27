@@ -194,6 +194,56 @@ export const App: React.FC = () => {
     } catch {}
   }, []);
 
+  // Estado reativo da foto de perfil do usuário (Sincronizado Supabase DB + Storage)
+  const [dbAvatarUrl, setDbAvatarUrl] = useState<string | undefined>(() => {
+    const metaAvatar = currentUser?.user_metadata?.avatar_url;
+    if (isValidCustomAvatar(metaAvatar)) return metaAvatar;
+    const sessionAvatar = sessionStorage.getItem('vagou_user_avatar');
+    if (isValidCustomAvatar(sessionAvatar)) return sessionAvatar;
+    const localAvatar = localStorage.getItem('vagou_user_avatar');
+    if (isValidCustomAvatar(localAvatar)) return localAvatar;
+    return undefined;
+  });
+
+  // Sincronização em tempo real do perfil e avatar com o Supabase DB
+  useEffect(() => {
+    let isMounted = true;
+    const syncProfileAndAvatar = async () => {
+      // 1. Tenta obter das fontes imediatas de cache
+      const metaAvatar = currentUser?.user_metadata?.avatar_url;
+      const sessionAvatar = sessionStorage.getItem('vagou_user_avatar');
+      const localAvatar = localStorage.getItem('vagou_user_avatar');
+      const immediate = [metaAvatar, sessionAvatar, localAvatar].find(isValidCustomAvatar);
+
+      if (immediate && isMounted) {
+        setDbAvatarUrl(immediate);
+      }
+
+      // 2. Consulta o Supabase DB (clients/professionals) para buscar avatar real do banco de dados
+      const sessionEmail = sessionStorage.getItem('vagou_user_email') || localStorage.getItem('vagou_user_email');
+      const sessionPhone = sessionStorage.getItem('vagou_user_phone') || localStorage.getItem('vagou_user_phone');
+      const sessionName = sessionStorage.getItem('vagou_user_name') || localStorage.getItem('vagou_user_name');
+
+      const profileData = await fetchUserProfileFromDb({
+        userId: currentUser?.id,
+        email: currentUser?.email || sessionEmail || undefined,
+        phone: currentUser?.user_metadata?.phone || sessionPhone || undefined,
+        name: currentUser?.user_metadata?.full_name || sessionName || undefined,
+      });
+
+      if (profileData?.avatarUrl && isValidCustomAvatar(profileData.avatarUrl) && isMounted) {
+        setDbAvatarUrl(profileData.avatarUrl);
+        sessionStorage.setItem('vagou_user_avatar', profileData.avatarUrl);
+        localStorage.setItem('vagou_user_avatar', profileData.avatarUrl);
+      }
+    };
+
+    syncProfileAndAvatar();
+    return () => { isMounted = false; };
+  }, [currentUser]);
+
+  const resolvedUserAvatarUrl = dbAvatarUrl;
+
   const [activeFamilyProfileId, setActiveFamilyProfileId] = useState<string>(() => {
     try {
       return localStorage.getItem('vagou_active_family_profile_id') || 'titular';
@@ -324,13 +374,17 @@ export const App: React.FC = () => {
         25.0,
         userSegment !== 'todos' ? userSegment : null
       );
-      setOffers(liveOffers || []);
-      if (liveOffers && liveOffers.length > 0 && !selectedOffer) {
-        setSelectedOffer(liveOffers[0]);
+      if (liveOffers && liveOffers.length > 0) {
+        setOffers(liveOffers);
+        if (!selectedOffer) setSelectedOffer(liveOffers[0]);
+      } else {
+        setOffers(MOCK_OFFERS);
+        if (!selectedOffer) setSelectedOffer(MOCK_OFFERS[0]);
       }
     } catch (err) {
       console.warn('[Supabase Live] Erro ao carregar ofertas:', err);
-      setOffers([]);
+      setOffers(MOCK_OFFERS);
+      if (!selectedOffer) setSelectedOffer(MOCK_OFFERS[0]);
     }
   };
 
@@ -667,6 +721,7 @@ export const App: React.FC = () => {
                   onRegisterSalonNav={setSalonNavContext}
                   onNavigateToAgenda={() => setCurrentScreen('agenda')}
                   userName={currentUser?.user_metadata?.full_name || currentUser?.email || 'Visitante'}
+                  userAvatarUrl={resolvedUserAvatarUrl}
                   isLoggedIn={Boolean(currentUser)}
                   onOpenAuthModal={() => setIsAuthModalOpen(true)}
                   activeFamilyProfile={activeFamilyProfile}
@@ -774,6 +829,8 @@ export const App: React.FC = () => {
                     setCurrentScreen('detalhe-oferta');
                   }}
                   currentUser={currentUser}
+                  userAvatarUrl={resolvedUserAvatarUrl}
+                  onAvatarUpdated={(newUrl) => setDbAvatarUrl(newUrl)}
                   isLoggedIn={Boolean(currentUser)}
                   onLogout={handleLogout}
                   onOpenAuthModal={() => setIsAuthModalOpen(true)}
@@ -805,6 +862,8 @@ export const App: React.FC = () => {
               currentSegment={userSegment}
               onSelectSegment={handleSelectSegment}
               userName={currentUser?.user_metadata?.full_name || currentUser?.email || 'Visitante'}
+              userAvatarUrl={resolvedUserAvatarUrl}
+              onAvatarUpdated={(newUrl) => setDbAvatarUrl(newUrl)}
               isLoggedIn={Boolean(currentUser)}
               onLogout={handleLogout}
               onOpenAuthModal={() => {

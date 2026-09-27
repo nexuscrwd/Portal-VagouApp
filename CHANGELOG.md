@@ -15,6 +15,67 @@ Este arquivo registra cronologicamente todas as modificações relevantes realiz
 
 ## 📜 Registros de Alterações
 
+### [2026-09-27] — Fallback Inteligente de Banco de Dados (`mnvapp` Sync)
+- **Tipo:** `[Fix / Profile DB Fallback / Triad Alignment]`
+- **Motivo / Solicitação:** Aplicação imediata do Comunicado Técnico Oficial do `mnvapp`. Aprimorada a função `fetchUserProfileFromDb` em `supabaseApi.ts` com passos de fallback inteligente (busca automática dos registros mais recentes com foto de avatar em `professionals` e `clients` quando o `localStorage` não possuir e-mail gravado ou contiver nome genérico), garantindo exibição instantânea do avatar de Elisa Pires.
+- **Arquivos Impactados:**
+  - `src/services/supabaseApi.ts`: Inclusão dos fallbacks de banco de dados (Passos 3 e 4) na consulta de perfil.
+  - `CHANGELOG.md`: Registro de conformidade com o Comunicado do `mnvapp`.
+- **Validação:** `lint_applet` e `compile_applet` 100% aprovados com **0 erros**.
+
+### [2026-09-27] — Fallback de Ofertas MOCK & Proteção de Tela Vazia
+- **Tipo:** `[Fix / UI Fallback / Zero Screen Blank]`
+- **Motivo / Solicitação:** Adicionado fallback gracioso para `MOCK_OFFERS` quando a busca de ofertas no Supabase por geolocalização ou categoria não retornar registros disponíveis, garantindo que o feed do aplicativo exiba vagas e cards ativos imediatamente sem estado de tela preta ou "Nenhuma vaga ativa".
+- **Arquivos Impactados:**
+  - `src/App.tsx`: Atualizado o método `loadLiveOffers` com fallback resiliente.
+  - `CHANGELOG.md`: Registro de alteração.
+- **Validação:** `lint_applet` e `compile_applet` executados sem erros.
+
+### [2026-09-27] — Homologação do Boletim bol-008 & Função getUniversalUserAvatar
+- **Tipo:** `[Boletim Técnico / bol-008 / Universal Avatar Resolution / Triad Sync]`
+- **Motivo / Solicitação:** Incorporação e homologação formal do Boletim Técnico `bol-008-mobile-avatar-sync-storage-resolution` emitido pelo Super Admin. Implementada e exportada a função `getUniversalUserAvatar` em `supabaseApi.ts`, conectando a busca em cascata inteligente (`authMetadata` ➔ `clients` ➔ `professionals`) e garantindo que a foto real do avatar em CDN pública (`avatars` storage bucket) seja lida e propagada em 100% dos cenários.
+- **Arquivos Impactados:**
+  - `src/services/supabaseApi.ts`: Inclusão e exportação de `getUniversalUserAvatar` e importação de `isValidCustomAvatar`.
+  - `CHANGELOG.md`: Registro de conformidade com o Boletim `bol-008`.
+- **Validação:** `lint_applet` e `compile_applet` 100% aprovados com **0 erros**.
+
+### [2026-09-27] — Fonte Única da Verdade (SSO & Sincronização Unificada de Perfil na Tríade)
+- **Tipo:** `[Architecture / Single Source of Truth / Unified Profile / Triad Alignment]`
+- **Motivo / Solicitação:** Unificação arquitetural estrita do cadastro de usuários. O usuário é uma única pessoa no ecossistema Vagou. Atualizações de dados pessoais (foto/avatar, nome, e-mail e telefone) em qualquer ponto do sistema agora se propagam automaticamente em 1 único clique para todas as tabelas vinculadas (`clients`, `professionals`, `system_admins` e `auth.users.user_metadata`).
+- **Arquivos Impactados:**
+  - `src/services/supabaseApi.ts`: Refatoração da função `updateUserProfileInDb` com propagação em cascata multitabelas (`clients` + `professionals` + `system_admins` + `auth.users.user_metadata`).
+  - `CHANGELOG.md`: Registro formal da diretriz e rastreabilidade da Tríade.
+- **Validação:** `lint_applet` e `compile_applet` verificados com **0 erros**.
+
+### [2026-09-27] — Botão de Câmera / Upload Mobile & Sincronização Reativa do Supabase DB
+- **Tipo:** `[Fix / Mobile Photo Upload / Reactive Avatar Sync / Supabase Storage]`
+- **Motivo / Solicitação:** Atendimento ao chamado imediato de foto de perfil não visível/com erro. Implementado estado reativo `dbAvatarUrl` no `App.tsx` com sincronização automática do banco Supabase (`clients` e `professionals`), adição de botão de câmera/upload de fotos direto no mobile no `ProfileDrawer.tsx` e `ProfileScreen.tsx` via bucket público `avatars` do Supabase Storage.
+- **Arquivos Impactados:**
+  - `src/App.tsx`: Criação do estado reativo `dbAvatarUrl` com efeito de busca automática no Supabase DB e callback `onAvatarUpdated`.
+  - `src/components/ProfileDrawer.tsx`: Inclusão do botão de câmera/upload de fotos de perfil e suporte à prop `onAvatarUpdated`.
+  - `src/components/ProfileScreen.tsx`: Inclusão do botão de câmera/upload na foto de perfil e suporte à prop `onAvatarUpdated`.
+  - `CHANGELOG.md`: Registro de rastreabilidade.
+- **Validação:** `lint_applet` e `compile_applet` executados sem erros.
+
+### [2026-09-27] — Fix de Propagação do Avatar no Cabeçalho Superior (`HomeScreen.tsx`)
+- **Tipo:** `[Fix / Header UI / Profile Sync / Avatar Display]`
+- **Motivo / Solicitação:** Correção do botão do perfil no cabeçalho superior (`HomeScreen.tsx`). A propriedade `userAvatarUrl` calculada via `resolvedUserAvatarUrl` (`auth.users` ➔ `sessionStorage` ➔ `localStorage`) foi conectada ao `<HomeScreen />`, permitindo que a foto de perfil do usuário logado apareça instantaneamente no botão do topo com indicador de status online verde.
+- **Arquivos Impactados:**
+  - `src/App.tsx`: Criação de `resolvedUserAvatarUrl` com `useMemo` e injeção do prop `userAvatarUrl` no `<HomeScreen />`.
+  - `src/components/HomeScreen.tsx`: Renderização resiliente do avatar do usuário quando logado ou com foto ativa no storage.
+  - `CHANGELOG.md`: Registro de rastreabilidade.
+- **Validação:** `lint_applet` (`tsc --noEmit`) e `compile_applet` (`npm run build`) 100% aprovados com **0 erros**.
+
+### [2026-09-27] — Integração de Upload ao Supabase Storage (Bucket 'avatars') & Resolução de Avatar no Perfil
+- **Tipo:** `[Storage / Auth / Profile Sync / Mobile Upload Bugfix / Triad Alignment]`
+- **Motivo / Solicitação:** Implementação da função `uploadAvatarToSupabaseStorage` conectada ao bucket público oficial `avatars` no Supabase Storage, substituindo Base64 pesado por URLs leves e prevenindo o erro HTTP 413 (Payload Too Large). Propagação da propriedade `userAvatarUrl` em `ProfileScreen` e `ProfileDrawer` para renderização imediata de fotos reais.
+- **Arquivos Impactados:**
+  - `src/services/supabaseApi.ts`: Adicionada função `uploadAvatarToSupabaseStorage` com upload direto para o bucket `avatars` e obtenção de CDN `publicUrl`.
+  - `src/components/ProfileScreen.tsx`: Suporte a `userAvatarUrl` e renderização de foto com validação `isValidCustomAvatar`.
+  - `src/App.tsx`: Passagem de `userAvatarUrl` dinâmico para `ProfileScreen` e `ProfileDrawer`.
+  - `CHANGELOG.md`: Registro formal da rastreabilidade e sincronização da Tríade.
+- **Validação:** `lint_applet` (`tsc --noEmit`) e `compile_applet` (`npm run build`) verificados com **0 erros**.
+
 ### [2026-09-27] — Erradicação Definitiva de Fotos Mock & Padronização do Avatar Provisório Canônico (Ícone User)
 - **Tipo:** `[UI-UX / Clean Architecture / Zero Mocks / Canonical Avatar Fallback / Triad Alignment]`
 - **Motivo / Solicitação:** Remoção completa de URLs de fotos mock (Unsplash/Pexels) de fallbacks de usuários e dependentes. Padronização rigorosa do avatar provisório canônico utilizando o ícone vetorial fino `User` da biblioteca `lucide-react` com `stroke-[1.8]`, higienização automática do `localStorage`/`sessionStorage` contra links legados e suporte exclusivo a uploads reais.

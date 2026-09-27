@@ -361,8 +361,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </button>
             </div>
 
-            {/* Profile Avatar Button (Logged In) / Entrar Button (Not Logged In) */}
-            {isLoggedIn ? (
+            {/* Profile Avatar Button (Logged In ou Avatar Ativo) */}
+            {(isLoggedIn || isValidCustomAvatar(userAvatarUrl)) ? (
               <button
                 onClick={onOpenProfileDrawer}
                 className={`relative w-9 h-9 rounded flex items-center justify-center border transition-all cursor-pointer flex-shrink-0 ${

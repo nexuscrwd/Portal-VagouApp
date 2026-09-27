@@ -21,12 +21,13 @@ import {
   Edit2,
   Check,
   X,
+  Camera,
 } from 'lucide-react';
 import { ServiceOffer } from '../types';
 import { requestNotificationPermission, sendLocalNotification } from '../utils/notifications';
 import { VagouLogo } from './VagouLogo';
 import { isValidCustomAvatar } from '../utils/avatarUtils';
-import { fetchUserProfileFromDb, updateUserProfileInDb } from '../services/supabaseApi';
+import { fetchUserProfileFromDb, updateUserProfileInDb, uploadAvatarToSupabaseStorage } from '../services/supabaseApi';
 import { hapticLight, hapticSuccess } from '../utils/haptics';
 import { useTheme } from '../context/ThemeContext';
 
@@ -40,6 +41,8 @@ interface ProfileScreenProps {
   onToggleFavorite?: (id: string) => void;
   onSelectOffer?: (offer: ServiceOffer) => void;
   currentUser?: any;
+  userAvatarUrl?: string;
+  onAvatarUpdated?: (newUrl: string) => void;
   isLoggedIn?: boolean;
   onLogout?: () => void;
   onOpenAuthModal?: () => void;
@@ -55,6 +58,8 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onToggleFavorite,
   onSelectOffer,
   currentUser,
+  userAvatarUrl,
+  onAvatarUpdated,
   isLoggedIn = false,
   onLogout,
   onOpenAuthModal,
@@ -64,6 +69,35 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
   const [notifSuccessMessage, setNotifSuccessMessage] = useState<string>('');
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  const handleAvatarFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    hapticLight();
+    setIsUploadingAvatar(true);
+
+    try {
+      const res = await uploadAvatarToSupabaseStorage(file, currentUser?.id || userProfile.email || 'user');
+      if (res.success && res.publicUrl) {
+        const newUrl = res.publicUrl;
+        const updatedProfile = { ...userProfile, avatarUrl: newUrl };
+        setUserProfile(updatedProfile);
+        setEditFormData(updatedProfile);
+        localStorage.setItem('vagou_user_avatar', newUrl);
+        sessionStorage.setItem('vagou_user_avatar', newUrl);
+        await updateUserProfileInDb(updatedProfile);
+        if (onAvatarUpdated) {
+          onAvatarUpdated(newUrl);
+        }
+        hapticSuccess();
+      }
+    } catch (err) {
+      console.warn('Erro no upload de foto:', err);
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   // Perfil privado do usuário
   const [userProfile, setUserProfile] = useState(() => {
@@ -188,6 +222,13 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const userName = userProfile.fullName || 'Cliente Vagou';
   const userDisplayEmail = userProfile.email;
   const userDisplayPhone = userProfile.phone;
+  const resolvedAvatarUrl =
+    userAvatarUrl ||
+    userProfile.avatarUrl ||
+    sessionStorage.getItem('vagou_user_avatar') ||
+    localStorage.getItem('vagou_user_avatar') ||
+    currentUser?.user_metadata?.avatar_url ||
+    '';
 
   const handleEnableNotifications = async () => {
     const granted = await requestNotificationPermission();
@@ -239,16 +280,45 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </div>
       )}
 
-      {/* User Header Dynamic State com ícone User padronizado */}
+      {/* User Header Dynamic State com foto ou ícone User padronizado */}
       {isLoggedIn ? (
         <div className={`flex items-center justify-between pt-1 p-3.5 rounded-xl border ${
           isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-xs'
         }`}>
           <div className="flex items-center gap-3.5 min-w-0">
-            <div className={`w-12 h-12 rounded-lg border flex items-center justify-center shrink-0 ${
-              isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
-            }`}>
-              <User className="w-6 h-6 stroke-[1.8]" />
+            <div className="relative shrink-0 group">
+              {isValidCustomAvatar(resolvedAvatarUrl) ? (
+                <div className="relative w-12 h-12">
+                  <img
+                    src={resolvedAvatarUrl}
+                    alt={userName}
+                    className="w-12 h-12 rounded-lg object-cover border-2 border-[#20C933]"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              ) : (
+                <div className={`w-12 h-12 rounded-lg border flex items-center justify-center shrink-0 ${
+                  isDark ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
+                }`}>
+                  <User className="w-6 h-6 stroke-[1.8]" />
+                </div>
+              )}
+
+              <label
+                className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#20C933] hover:bg-[#1bb82d] text-white flex items-center justify-center cursor-pointer shadow-md transition-transform active:scale-90"
+                title="Trocar Foto de Perfil (Câmera / Galeria)"
+                aria-label="Trocar Foto de Perfil"
+              >
+                <Camera className="w-3 h-3 stroke-[2]" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  className="hidden"
+                  onChange={handleAvatarFileUpload}
+                  disabled={isUploadingAvatar}
+                />
+              </label>
             </div>
             <div className="min-w-0">
               <h2 className={`text-sm font-black truncate ${isDark ? 'text-white' : 'text-slate-900'}`}>{userName}</h2>
