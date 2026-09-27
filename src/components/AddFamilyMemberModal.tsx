@@ -39,20 +39,16 @@ export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({
     hapticSuccess();
     const isKids = relationship === 'filho_kids';
     let targetSegment: FamilyMemberProfile['targetSegment'] = 'todos';
-    let avatarUrl = initialMember?.avatarUrl || 'https://images.unsplash.com/photo-1543332164-6e82f355badc?auto=format&fit=crop&w=150&q=80';
+    const avatarUrl = initialMember?.avatarUrl || undefined;
 
     if (relationship === 'filho_kids') {
       targetSegment = 'kids';
-      avatarUrl = 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=150&q=80';
     } else if (relationship === 'esposa') {
       targetSegment = 'feminino';
-      avatarUrl = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80';
     } else if (relationship === 'esposo') {
       targetSegment = 'masculino';
-      avatarUrl = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80';
     } else if (relationship === 'filho_teen') {
       targetSegment = 'todos';
-      avatarUrl = 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=150&q=80';
     }
 
     onAddMember({

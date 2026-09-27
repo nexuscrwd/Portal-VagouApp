@@ -346,16 +346,16 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                       <div className={`relative w-10 h-10 rounded-full overflow-hidden border flex items-center justify-center ${
                         isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
                       }`}>
-                        {member.avatarUrl ? (
+                        {isValidCustomAvatar(member.avatarUrl) ? (
                           <img
-                            src={member.avatarUrl}
+                            src={member.avatarUrl!}
                             alt={member.name}
                             className="w-full h-full object-cover"
                           />
                         ) : member.isKids ? (
-                          <Baby className="w-5 h-5 text-emerald-400" />
+                          <Baby className="w-5 h-5 text-emerald-400 stroke-[1.8]" />
                         ) : (
-                          <User className="w-5 h-5 text-slate-300" />
+                          <User className="w-5 h-5 text-slate-300 stroke-[1.8]" />
                         )}
                         {isActive && (
                           <span className="absolute inset-0 bg-emerald-500/20 border-2 border-[#20C933] rounded-full" />

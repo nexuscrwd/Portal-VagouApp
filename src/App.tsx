@@ -38,6 +38,7 @@ import {
   deleteFamilyMemberFromSupabase,
   fetchUserProfileFromDb,
 } from './services/supabaseApi';
+import { isValidCustomAvatar } from './utils/avatarUtils';
 import {
   getDeviceCoordinates,
   UserCoordinates,
@@ -135,8 +136,15 @@ export const App: React.FC = () => {
   const [familyProfiles, setFamilyProfiles] = useState<FamilyMemberProfile[]>(() => {
     try {
       const saved = localStorage.getItem('vagou_family_profiles');
-      if (saved) return JSON.parse(saved);
-      // Perfis de demonstração padrão (Filho Kids + Esposa)
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Higieniza contra links mock legados
+        return parsed.map((m: FamilyMemberProfile) => ({
+          ...m,
+          avatarUrl: isValidCustomAvatar(m.avatarUrl) ? m.avatarUrl : undefined,
+        }));
+      }
+      // Perfis de demonstração padrão (Filho Kids + Esposa) sem foto mock
       return [
         {
           id: 'fam-enzo-kids',
@@ -147,7 +155,7 @@ export const App: React.FC = () => {
           isKids: true,
           notes: 'Corte tesoura nas laterais com risquinho. Não usar máquina na nuca.',
           autonomyLevel: 'parent_controlled',
-          avatarUrl: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=150&q=80',
+          avatarUrl: undefined,
         },
         {
           id: 'fam-mariana-esposa',
@@ -158,13 +166,33 @@ export const App: React.FC = () => {
           isKids: false,
           notes: 'Unhas em gel e cronograma capilar.',
           autonomyLevel: 'parent_controlled',
-          avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80',
+          avatarUrl: undefined,
         },
       ];
     } catch {
       return [];
     }
   });
+
+  // Higienização de segurança contra URLs legadas no localStorage / sessionStorage
+  useEffect(() => {
+    try {
+      const storedAvatar = localStorage.getItem('vagou_user_avatar') || sessionStorage.getItem('vagou_user_avatar');
+      if (storedAvatar && !isValidCustomAvatar(storedAvatar)) {
+        localStorage.removeItem('vagou_user_avatar');
+        sessionStorage.removeItem('vagou_user_avatar');
+      }
+
+      const storedProfile = localStorage.getItem('vagou_private_user_profile');
+      if (storedProfile) {
+        const parsed = JSON.parse(storedProfile);
+        if (parsed.avatarUrl && !isValidCustomAvatar(parsed.avatarUrl)) {
+          parsed.avatarUrl = undefined;
+          localStorage.setItem('vagou_private_user_profile', JSON.stringify(parsed));
+        }
+      }
+    } catch {}
+  }, []);
 
   const [activeFamilyProfileId, setActiveFamilyProfileId] = useState<string>(() => {
     try {

@@ -130,7 +130,7 @@ export async function fetchOffersFromSupabase(
           salonName: salon.trade_name || 'Estabelecimento',
           salonLogo: salon.logo_url || '/logo.svg',
           professionalName: prof.name || 'Profissional',
-          professionalAvatar: prof.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+          professionalAvatar: prof.avatar_url || '',
           serviceTitle: row.service_title,
           serviceCategory: validCategory,
           price: Number(row.price),
@@ -1157,6 +1157,31 @@ export interface UserProfileData {
  * Homologado com suporte a Elisa Pires (email: elisa.pires@gmail.com, phone: 11987654321).
  * Sincroniza automaticamente as chaves de sessão: vagou_user_name, vagou_user_email, vagou_user_phone, vagou_user_avatar.
  */
+/**
+ * Resolução em cascata universal de foto de perfil (SSO da Tríade)
+ * professional.avatar_url -> client.avatar_url -> salon.logo_url -> auth.user_metadata.avatar_url -> sessionAvatar -> ''
+ */
+export function resolveTriadeAvatar(params: {
+  professionalAvatar?: string | null;
+  clientAvatar?: string | null;
+  salonLogo?: string | null;
+  authMetadataAvatar?: string | null;
+  sessionAvatar?: string | null;
+}): string {
+  return (
+    params.professionalAvatar?.trim() ||
+    params.clientAvatar?.trim() ||
+    params.salonLogo?.trim() ||
+    params.authMetadataAvatar?.trim() ||
+    params.sessionAvatar?.trim() ||
+    ''
+  );
+}
+
+/**
+ * Consulta o perfil do usuário no Supabase (tabelas professionals, clients e auth.users metadata).
+ * 100% Dinâmico, Universal e Agnóstico de Usuário.
+ */
 export async function fetchUserProfileFromDb(
   identifier?: { userId?: string; email?: string; phone?: string; name?: string }
 ): Promise<UserProfileData | null> {
@@ -1183,43 +1208,9 @@ export async function fetchUserProfileFromDb(
       } catch {}
     }
 
-    const lowerName = searchName.toLowerCase();
-    const lowerEmail = searchEmail.toLowerCase();
     const cleanPhoneDigits = searchPhone.replace(/\D/g, '');
 
-    // 1. Homologação Oficial de Elisa Pires
-    const isElisa =
-      lowerName.includes('elisa') ||
-      lowerEmail.includes('elisa') ||
-      cleanPhoneDigits.includes('987654321') ||
-      cleanPhoneDigits.includes('11987654321');
-
-    if (isElisa) {
-      const elisaProfile: UserProfileData = {
-        fullName: 'Elisa Pires',
-        email: 'elisa.pires@gmail.com',
-        phone: '11987654321',
-        address: 'São Paulo, SP',
-      };
-
-      // Grava nas chaves de sessão obrigatórias
-      sessionStorage.setItem('vagou_user_name', elisaProfile.fullName);
-      sessionStorage.setItem('vagou_user_email', elisaProfile.email);
-      sessionStorage.setItem('vagou_user_phone', elisaProfile.phone);
-      localStorage.setItem('vagou_user_name', elisaProfile.fullName);
-      localStorage.setItem('vagou_user_email', elisaProfile.email);
-      localStorage.setItem('vagou_user_phone', elisaProfile.phone);
-      localStorage.setItem('vagou_private_user_profile', JSON.stringify({
-        fullName: elisaProfile.fullName,
-        email: elisaProfile.email,
-        phone: elisaProfile.phone,
-        address: elisaProfile.address,
-      }));
-
-      return elisaProfile;
-    }
-
-    // 2. Consulta tabela professionals (prioridade alta para usuários que prestam serviços)
+    // 1. Consulta tabela professionals (prioridade alta para prestadores de serviço)
     let profQuery = supabase.from('professionals').select('*');
     if (searchUserId) {
       profQuery = profQuery.or(`user_id.eq.${searchUserId},id.eq.${searchUserId}`);
@@ -1234,7 +1225,7 @@ export async function fetchUserProfileFromDb(
     const { data: profsData } = await profQuery.limit(1);
     const prof = profsData && profsData.length > 0 ? profsData[0] : null;
 
-    // 3. Consulta tabela clients
+    // 2. Consulta tabela clients
     let clientQuery = supabase.from('clients').select('*');
     if (searchUserId) {
       clientQuery = clientQuery.or(`user_id.eq.${searchUserId},id.eq.${searchUserId}`);
@@ -1250,9 +1241,14 @@ export async function fetchUserProfileFromDb(
     const client = clientsData && clientsData.length > 0 ? clientsData[0] : null;
 
     if (client || prof) {
-      // Cascading fallback conforme especificação oficial da Tríade:
-      // professionalData?.avatar_url || clientData?.avatar_url || authMetadata?.avatar_url || sessionAvatar || ''
-      const resolvedAvatar = prof?.avatar_url || client?.avatar_url || authMetadata?.avatar_url || sessionAvatar || '';
+      // Resolução universal via resolveTriadeAvatar
+      const resolvedAvatar = resolveTriadeAvatar({
+        professionalAvatar: prof?.avatar_url,
+        clientAvatar: client?.avatar_url,
+        authMetadataAvatar: authMetadata?.avatar_url,
+        sessionAvatar: sessionAvatar,
+      });
+
       const resolvedName = prof?.name || client?.name || authMetadata?.full_name || searchName || 'Cliente Vagou';
       const resolvedEmail = prof?.email || client?.email || authMetadata?.email || searchEmail || '';
       const resolvedPhone = prof?.phone || client?.phone || authMetadata?.phone || searchPhone || '';
@@ -1288,14 +1284,19 @@ export async function fetchUserProfileFromDb(
       return resolved;
     }
 
-    // Se já existem dados no storage ou auth, retorna o que tem com fallback
-    if (searchName || searchEmail || searchPhone || authMetadata?.full_name) {
+    // Se não encontrou nas tabelas relacionais, utiliza metadados de autenticação e sessão de forma dinâmica
+    if (searchName || searchEmail || searchPhone || authMetadata?.full_name || authMetadata?.avatar_url) {
+      const dynamicAvatar = resolveTriadeAvatar({
+        authMetadataAvatar: authMetadata?.avatar_url,
+        sessionAvatar: sessionAvatar,
+      });
+
       return {
         fullName: authMetadata?.full_name || searchName || 'Cliente Vagou',
         email: authMetadata?.email || searchEmail || '',
         phone: authMetadata?.phone || searchPhone || '',
         address: 'São Paulo, SP',
-        avatarUrl: authMetadata?.avatar_url || sessionAvatar || undefined,
+        avatarUrl: dynamicAvatar || undefined,
       };
     }
 

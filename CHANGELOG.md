@@ -15,6 +15,33 @@ Este arquivo registra cronologicamente todas as modificações relevantes realiz
 
 ## 📜 Registros de Alterações
 
+### [2026-09-27] — Erradicação Definitiva de Fotos Mock & Padronização do Avatar Provisório Canônico (Ícone User)
+- **Tipo:** `[UI-UX / Clean Architecture / Zero Mocks / Canonical Avatar Fallback / Triad Alignment]`
+- **Motivo / Solicitação:** Remoção completa de URLs de fotos mock (Unsplash/Pexels) de fallbacks de usuários e dependentes. Padronização rigorosa do avatar provisório canônico utilizando o ícone vetorial fino `User` da biblioteca `lucide-react` com `stroke-[1.8]`, higienização automática do `localStorage`/`sessionStorage` contra links legados e suporte exclusivo a uploads reais.
+- **Arquivos Impactados:**
+  - `src/utils/avatarUtils.ts`: Função de validação `isValidCustomAvatar` filtrando e rejeitando fotos de estoque/placeholders.
+  - `src/services/supabaseApi.ts`: Remoção de fallbacks mock de fotos em consultas do Supabase.
+  - `src/App.tsx`: Higienização automática de chaves de storage (`vagou_user_avatar`, `vagou_private_user_profile`, `vagou_family_profiles`) e remoção de imagens mock padrão de dependentes.
+  - `src/components/AddFamilyMemberModal.tsx`: Removida injeção de fotos pré-definidas em novos cadastros.
+  - `src/components/ProfileDrawer.tsx`: Uso consistente de `isValidCustomAvatar` e `User` com `stroke-[1.8]`.
+  - `CHANGELOG.md`: Registro de conformidade da Tríade.
+- **Validação:** `lint_applet` (`tsc --noEmit`) e `compile_applet` (`npm run build`) verificados com **0 erros**.
+
+### [2026-09-27] — Homologação da Arquitetura Universal de Perfis & Identidade Dinâmica (SSO Tríade)
+- **Tipo:** `[SSO / Universal Dynamic Identity / Clean Architecture / Triad Alignment]`
+- **Motivo / Solicitação:** Homologação e implementação da arquitetura 100% dinâmica e agnóstica de usuário. Exportação da função `resolveTriadeAvatar`, eliminação de qualquer fallback estático ou restrição hardcoded, garantindo suporte autônomo a todos os usuários da base e compatibilidade universal entre `mnvapp`, `pvapp` e `admvapp`.
+- **Arquivos Impactados:**
+  - `src/services/supabaseApi.ts`: Implementada a função `resolveTriadeAvatar`, tornando a resolução de avatares e perfis em cascata 100% dinâmica a partir de `professionals`, `clients`, `salons`, `auth.users.user_metadata` e sessão.
+  - `CHANGELOG.md`: Registro formal da rastreabilidade e alinhamento da Tríade.
+- **Validação:** `lint_applet` (`tsc --noEmit`) e `compile_applet` (`npm run build`) verificados com **0 erros**.
+
+### [2026-09-27] — Homologação do Script SQL Condicional (DO $$ ... $$) & Sincronização Canônica da Tríade
+- **Tipo:** `[Database / SQL Homologation / Cross-App Sync / Triad Alignment]`
+- **Motivo / Solicitação:** Homologação do script SQL ajustado com blocos condicionais (`DO $$ ... $$`) para persistência canônica e sincronização de metadados em `auth.users.raw_user_meta_data`, garantindo total compatibilidade estrutural com o Supabase compartilhado sem erros de constraints.
+- **Arquivos Impactados:**
+  - `CHANGELOG.md`: Registro de conformidade da Tríade e alinhamento do ecossistema.
+- **Validação:** `lint_applet` (`tsc --noEmit`) e `compile_applet` (`npm run build`) verificados com **0 erros**.
+
 ### [2026-09-27] — Alinhamento Arquitetural: SSO Global da Tríade & Resolução em Cascata de Avatar
 - **Tipo:** `[SSO / Auth / Profile Sync / Triad Alignment]`
 - **Motivo / Solicitação:** Resposta técnica oficial ao comunicado do `mnvapp` e `admvapp` sobre a unificação global da identidade (1 Usuário = 1 Cadastro = Acesso Universal), espelhamento em `auth.users.user_metadata` e resolução em cascata da foto de perfil (`avatar_url`).
