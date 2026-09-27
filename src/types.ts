@@ -9,62 +9,14 @@ export type ScreenId =
   | 'confirmacao'
   | 'agenda'
   | 'favoritos'
-  | 'perfil'
-  | 'cadastro-empresa';
+  | 'perfil';
 
-export type PartnerScreenId =
-  | 'partner-agenda'
-  | 'partner-publish'
-  | 'partner-schedule-config'
-  | 'partner-config'
-  | 'partner-profile';
-
-export type AppMode = 'client' | 'partner' | 'admin';
-
-export interface TimeBreak {
-  id: string;
-  label: string;
-  start: string; // e.g. "12:00"
-  end: string;   // e.g. "13:00"
-}
-
-export interface DayScheduleConfig {
-  dayOfWeek: number; // 0 = Domingo, 1 = Segunda ... 6 = Sábado
-  dayName: string;
-  active: boolean;
-  openTime: string; // "09:00"
-  closeTime: string; // "19:00"
-  breaks: TimeBreak[];
-}
-
-export interface PartnerProfessional {
+export interface SalonProfessional {
   id: string;
   name: string;
   role: string;
   avatar?: string;
-  phone?: string;
-  specialties: string[];
-  color: string;
-  slotDurationMinutes: number;
-  useCustomSchedule: boolean;
-  schedule: DayScheduleConfig[];
-}
-
-export interface PartnerAppointmentItem {
-  id: string;
-  protocolCode: string;
-  professionalId: string;
-  professionalName: string;
-  clientName: string;
-  clientPhone: string;
-  serviceTitle: string;
-  serviceCategory: 'cabelo' | 'barba' | 'unhas' | 'beleza' | 'estetica';
-  price: number;
-  dateStr: string; // "2026-08-29"
-  startTime: string; // "14:30"
-  endTime: string;   // "15:15"
-  status: 'CONFIRMADO' | 'EM_ATENDIMENTO' | 'CONCLUIDO' | 'CANCELADO' | 'NO_SHOW' | 'VAGA_PUBLICADA' | 'HORARIO_LIVRE';
-  notes?: string;
+  rating?: number;
 }
 
 export interface ServiceOffer {
@@ -212,40 +164,3 @@ export interface SalonBranding {
   accentColor?: string;
 }
 
-export interface SalonRegistrationPayload {
-  name: string;
-  phoneWhatsapp: string;
-  cep: string;
-  address: string;
-  number?: string;
-  complement?: string;
-  neighborhood: string;
-  city: string;
-  state: string;
-  latitude?: number;
-  longitude?: number;
-  ownerName: string;
-  ownerCpf: string;
-  ownerEmail: string;
-  ownerPassword?: string;
-  segment: 'barbearia' | 'salao' | 'esmalteria' | 'estetica' | 'outros';
-  branding: SalonBranding;
-  slug: string;
-  operatingModel?: 'team' | 'solo' | 'home_delivery' | 'hybrid';
-}
-
-export interface PartnerOnboardingInitialService {
-  title: string;
-  category: 'cabelo' | 'barba' | 'unhas' | 'beleza' | 'estetica';
-  price: number;
-  durationMinutes: number;
-}
-
-export interface PartnerOnboardingData {
-  operatingModel: 'team' | 'solo' | 'home_delivery' | 'hybrid';
-  logoUrl?: string;
-  primaryProfessionalName?: string;
-  primaryProfessionalRole?: string;
-  primaryProfessionalSlotMinutes?: number;
-  services: PartnerOnboardingInitialService[];
-}

@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
-  Phone,
   MapPin,
   Shield,
   CreditCard,
@@ -15,14 +14,20 @@ import {
   CheckCircle2,
   Heart,
   Trash2,
-  Clock,
-  Star,
   ArrowLeft,
   Home,
+  Mail,
+  Phone,
+  Edit2,
+  Check,
+  X,
 } from 'lucide-react';
 import { ServiceOffer } from '../types';
 import { requestNotificationPermission, sendLocalNotification } from '../utils/notifications';
 import { VagouLogo } from './VagouLogo';
+import { isValidCustomAvatar } from '../utils/avatarUtils';
+import { fetchUserProfileFromDb, updateUserProfileInDb } from '../services/supabaseApi';
+import { hapticLight, hapticSuccess } from '../utils/haptics';
 
 interface ProfileScreenProps {
   onBack?: () => void;
@@ -33,8 +38,6 @@ interface ProfileScreenProps {
   favorites?: string[];
   onToggleFavorite?: (id: string) => void;
   onSelectOffer?: (offer: ServiceOffer) => void;
-  onSwitchToPartnerMode?: () => void;
-  onOpenPartnerRegistration?: () => void;
   currentUser?: any;
   isLoggedIn?: boolean;
   onLogout?: () => void;
@@ -50,8 +53,6 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   favorites = [],
   onToggleFavorite,
   onSelectOffer,
-  onSwitchToPartnerMode,
-  onOpenPartnerRegistration,
   currentUser,
   isLoggedIn = false,
   onLogout,
@@ -62,10 +63,112 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   );
   const [notifSuccessMessage, setNotifSuccessMessage] = useState<string>('');
 
+  // Perfil privado do usuário
+  const [userProfile, setUserProfile] = useState(() => {
+    const sessionEmail = sessionStorage.getItem('vagou_user_email') || localStorage.getItem('vagou_user_email');
+    const sessionPhone = sessionStorage.getItem('vagou_user_phone') || localStorage.getItem('vagou_user_phone');
+    const sessionName = sessionStorage.getItem('vagou_user_name') || localStorage.getItem('vagou_user_name');
+    try {
+      const saved = localStorage.getItem('vagou_private_user_profile');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          fullName: parsed.fullName || sessionName || currentUser?.user_metadata?.full_name || 'Cliente Vagou',
+          email: parsed.email || sessionEmail || currentUser?.email || '',
+          phone: parsed.phone || sessionPhone || currentUser?.user_metadata?.phone || '',
+          address: parsed.address || 'São Paulo, SP',
+        };
+      }
+    } catch {}
+    return {
+      fullName: sessionName || currentUser?.user_metadata?.full_name || 'Cliente Vagou',
+      email: sessionEmail || currentUser?.email || '',
+      phone: sessionPhone || currentUser?.user_metadata?.phone || '',
+      address: 'São Paulo, SP',
+    };
+  });
+
+  const [isMyDataModalOpen, setIsMyDataModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState(userProfile);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+
+  // Sincroniza com o Supabase quando abrir a tela ou o modal de Meus Dados
+  useEffect(() => {
+    const sessionEmail = sessionStorage.getItem('vagou_user_email') || localStorage.getItem('vagou_user_email');
+    const sessionPhone = sessionStorage.getItem('vagou_user_phone') || localStorage.getItem('vagou_user_phone');
+
+    if (!sessionEmail || !sessionPhone || !userProfile.email || !userProfile.phone) {
+      setIsLoadingProfile(true);
+      fetchUserProfileFromDb({
+        name: userProfile.fullName,
+        email: sessionEmail || userProfile.email,
+        phone: sessionPhone || userProfile.phone,
+        userId: currentUser?.id,
+      }).then((dbData) => {
+        setIsLoadingProfile(false);
+        if (dbData) {
+          const updated = {
+            fullName: dbData.fullName || userProfile.fullName,
+            email: dbData.email || userProfile.email,
+            phone: dbData.phone || userProfile.phone,
+            address: dbData.address || userProfile.address,
+          };
+          setUserProfile(updated);
+          setEditFormData(updated);
+        }
+      });
+    }
+  }, [currentUser?.id]);
+
+  const handleOpenMyData = () => {
+    hapticLight();
+    const sessionEmail = sessionStorage.getItem('vagou_user_email') || localStorage.getItem('vagou_user_email');
+    const sessionPhone = sessionStorage.getItem('vagou_user_phone') || localStorage.getItem('vagou_user_phone');
+
+    if (!sessionEmail || !sessionPhone || !userProfile.email || !userProfile.phone) {
+      setIsLoadingProfile(true);
+      fetchUserProfileFromDb({
+        name: userProfile.fullName,
+        email: sessionEmail || userProfile.email,
+        phone: sessionPhone || userProfile.phone,
+        userId: currentUser?.id,
+      }).then((dbData) => {
+        setIsLoadingProfile(false);
+        if (dbData) {
+          const updated = {
+            fullName: dbData.fullName || userProfile.fullName,
+            email: dbData.email || userProfile.email,
+            phone: dbData.phone || userProfile.phone,
+            address: dbData.address || userProfile.address,
+          };
+          setUserProfile(updated);
+          setEditFormData(updated);
+        }
+      });
+    } else {
+      setEditFormData(userProfile);
+    }
+    setIsMyDataModalOpen(true);
+  };
+
+  const handleSaveMyData = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUserProfile(editFormData);
+    await updateUserProfileInDb(editFormData);
+    setSaveSuccess(true);
+    hapticSuccess();
+    setTimeout(() => {
+      setSaveSuccess(false);
+      setIsMyDataModalOpen(false);
+    }, 1500);
+  };
+
   const favoriteOffers = offers.filter((o) => favorites.includes(o.id));
 
-  const userName = currentUser?.user_metadata?.full_name || currentUser?.email?.split('@')[0] || 'Cliente Vagou';
-  const userEmailOrPhone = currentUser?.email || currentUser?.user_metadata?.phone || 'Acesse sua conta para agendar';
+  const userName = userProfile.fullName || currentUser?.user_metadata?.full_name || 'Cliente Vagou';
+  const userDisplayEmail = userProfile.email || currentUser?.email || '';
+  const userDisplayPhone = userProfile.phone || currentUser?.user_metadata?.phone || '';
 
   const handleEnableNotifications = async () => {
     const perm = await requestNotificationPermission();
@@ -109,19 +212,24 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         </div>
       )}
 
-      {/* User Header Dynamic State */}
+      {/* User Header Dynamic State com ícone User padronizado */}
       {isLoggedIn ? (
-        <div className="flex items-center justify-between pt-1 p-3.5 rounded-[4px] bg-slate-50 border border-slate-200/80">
-          <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center font-black text-lg shadow-sm">
-              {userName.charAt(0).toUpperCase()}
+        <div className="flex items-center justify-between pt-1 p-3.5 rounded-lg bg-slate-50 border border-slate-200/80">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center shrink-0">
+              <User className="w-6 h-6 stroke-[1.8]" />
             </div>
-            <div>
-              <h2 className="text-sm font-black text-slate-900">{userName}</h2>
-              <p className="text-xs text-slate-500 font-medium">{userEmailOrPhone}</p>
+            <div className="min-w-0">
+              <h2 className="text-sm font-black text-slate-900 truncate">{userName}</h2>
+              <p className="text-xs text-slate-500 font-medium truncate">
+                {userDisplayEmail || userDisplayPhone || 'Conta Conectada'}
+              </p>
+              {userDisplayPhone && userDisplayEmail && (
+                <p className="text-[11px] text-slate-400 font-mono truncate">{userDisplayPhone}</p>
+              )}
               <div className="flex items-center gap-1 mt-1">
-                <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-[4px] border border-emerald-200">
-                  Conta Ativa
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded border border-emerald-200">
+                  Sincronizado Supabase
                 </span>
               </div>
             </div>
@@ -129,7 +237,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           {onLogout && (
             <button
               onClick={onLogout}
-              className="p-2 text-rose-600 hover:bg-rose-50 rounded-[4px] transition text-xs font-bold flex items-center gap-1 cursor-pointer"
+              className="p-2 text-rose-600 hover:bg-rose-50 rounded transition text-xs font-bold flex items-center gap-1 cursor-pointer shrink-0"
               title="Sair da Conta"
             >
               <LogOut className="w-4 h-4 text-rose-600" />
@@ -138,10 +246,10 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           )}
         </div>
       ) : (
-        <div className="p-4 rounded-[4px] bg-slate-900 text-white border border-slate-800 space-y-3 shadow-md">
+        <div className="p-4 rounded-lg bg-slate-900 text-white border border-slate-800 space-y-3 shadow-md">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-full bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center font-bold text-base">
-              <User className="w-5 h-5 text-emerald-400" />
+            <div className="w-11 h-11 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center shrink-0">
+              <User className="w-5 h-5 stroke-[1.8]" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-white">Visitante no VagouApp</h2>
@@ -151,50 +259,129 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           {onOpenAuthModal && (
             <button
               onClick={onOpenAuthModal}
-              className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.99] text-white font-bold text-xs rounded-[4px] transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              className="w-full py-2.5 bg-[#20C933] hover:bg-[#1bb82d] active:scale-[0.99] text-white font-bold text-xs rounded transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
             >
-              <User className="w-4 h-4 text-white" />
+              <User className="w-4 h-4 text-white stroke-[1.8]" />
               <span>Entrar ou Cadastrar-se</span>
             </button>
           )}
         </div>
       )}
 
-      {/* Switch to Partner / Business Mode Banner */}
-      {onSwitchToPartnerMode && (
-        <div className="bg-slate-900 text-white rounded-xl p-4 shadow-md border border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-sm">
-                🏢
+      {/* Modal / Gaveta de Meus Dados Cadastrais */}
+      {isMyDataModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-sm rounded-xl bg-white border border-slate-200 text-slate-900 shadow-2xl p-4 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
+                  <User className="w-4 h-4 stroke-[1.8]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 font-['Poppins']">Meus Dados</h3>
+                  <p className="text-[10px] text-slate-400">Sincronização em tempo real com o Supabase</p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-xs font-black text-white">É dono de salão ou barbearia?</h4>
-                <p className="text-[11px] text-slate-400">Cadastre seu negócio e publique vagas no Radar</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {onOpenPartnerRegistration && (
               <button
-                id="btn-perfil-cadastrar-empresa"
-                onClick={onOpenPartnerRegistration}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.99] text-white font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                onClick={() => setIsMyDataModalOpen(false)}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
               >
-                <span>Cadastrar Empresa Grátis</span>
-                <ChevronRight className="w-4 h-4 text-white" />
+                <X className="w-4 h-4" />
               </button>
+            </div>
+
+            {saveSuccess && (
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                <Check className="w-4 h-4 text-emerald-600" />
+                Dados cadastrais atualizados no Supabase!
+              </div>
             )}
-            <button
-              onClick={onSwitchToPartnerMode}
-              className={`w-full py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-[0.99] text-slate-200 font-bold text-xs rounded-lg transition flex items-center justify-center gap-2 border border-slate-700 cursor-pointer ${
-                !onOpenPartnerRegistration ? 'col-span-full' : ''
-              }`}
-            >
-              <span>Acessar Painel de Gestão</span>
-              <ChevronRight className="w-4 h-4 text-slate-400" />
-            </button>
+
+            <form onSubmit={handleSaveMyData} className="space-y-3 text-xs">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Nome Completo
+                </label>
+                <div className="relative">
+                  <User className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 stroke-[1.8]" />
+                  <input
+                    type="text"
+                    value={editFormData.fullName}
+                    onChange={(e) => setEditFormData({ ...editFormData, fullName: e.target.value })}
+                    className="w-full pl-8 pr-2.5 py-2 rounded-lg border border-slate-300 text-xs text-slate-900 focus:border-emerald-500 outline-none"
+                    placeholder="Nome Completo"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  E-mail
+                </label>
+                <div className="relative">
+                  <Mail className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 stroke-[1.8]" />
+                  <input
+                    type="email"
+                    value={editFormData.email}
+                    onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                    className="w-full pl-8 pr-2.5 py-2 rounded-lg border border-slate-300 text-xs text-slate-900 focus:border-emerald-500 outline-none"
+                    placeholder="email@exemplo.com"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Telefone / WhatsApp
+                </label>
+                <div className="relative">
+                  <Phone className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 stroke-[1.8]" />
+                  <input
+                    type="tel"
+                    value={editFormData.phone}
+                    onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                    className="w-full pl-8 pr-2.5 py-2 rounded-lg border border-slate-300 text-xs text-slate-900 focus:border-emerald-500 outline-none font-mono"
+                    placeholder="(11) 90000-0000"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Endereço Padrão
+                </label>
+                <div className="relative">
+                  <MapPin className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 stroke-[1.8]" />
+                  <input
+                    type="text"
+                    value={editFormData.address}
+                    onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })}
+                    className="w-full pl-8 pr-2.5 py-2 rounded-lg border border-slate-300 text-xs text-slate-900 focus:border-emerald-500 outline-none"
+                    placeholder="Cidade, Bairro, SP"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsMyDataModalOpen(false)}
+                  className="flex-1 py-2 rounded-lg border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 transition cursor-pointer"
+                >
+                  Fechar
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2 bg-[#20C933] hover:bg-[#1bb82d] text-white font-bold rounded-lg text-xs transition cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                  Salvar
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -231,7 +418,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
 
         <button
           onClick={handleEnableNotifications}
-          className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-md transition shadow-sm flex items-center justify-center gap-1.5"
+          className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-md transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <Bell className="w-3.5 h-3.5" />
           <span>{notificationStatus === 'granted' ? 'Testar Notificação Agora' : 'Ativar Notificações de Vagas'}</span>
@@ -289,7 +476,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                     e.stopPropagation();
                     onToggleFavorite && onToggleFavorite(off.id);
                   }}
-                  className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition shrink-0"
+                  className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition shrink-0 cursor-pointer"
                   title="Remover dos favoritos"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -316,7 +503,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </div>
           <button
             onClick={onInstallClick}
-            className="w-full py-2.5 bg-white text-emerald-800 font-bold text-xs rounded-lg shadow hover:bg-emerald-50 active:scale-[0.98] transition flex items-center justify-center gap-2"
+            className="w-full py-2.5 bg-white text-emerald-800 font-bold text-xs rounded-lg shadow hover:bg-emerald-50 active:scale-[0.98] transition flex items-center justify-center gap-2 cursor-pointer"
           >
             <Download className="w-4 h-4 text-emerald-600" />
             <span>Instalar Aplicativo Agora</span>
@@ -338,10 +525,30 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Configurações da Conta</h3>
         
         <div className="bg-slate-50 rounded-lg border border-slate-100 overflow-hidden divide-y divide-slate-100">
+          {/* Meus Dados Cadastrais */}
+          <div
+            onClick={handleOpenMyData}
+            className="p-3.5 flex items-center justify-between hover:bg-slate-100/80 transition cursor-pointer group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-7 h-7 rounded bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center">
+                <User className="w-4 h-4 stroke-[1.8]" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-slate-800 block">Meus Dados Pessoais</span>
+                <span className="text-[10px] text-slate-400 block">Nome, e-mail, telefone e endereço</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              {isLoadingProfile && <span className="text-[10px] text-slate-400">Sincronizando...</span>}
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700 transition" />
+            </div>
+          </div>
+
           <div className="p-3.5 flex items-center justify-between hover:bg-slate-100/60 transition cursor-pointer">
             <div className="flex items-center gap-3">
               <MapPin className="w-4 h-4 text-emerald-600" />
-              <span className="text-xs font-bold text-slate-800">Endereços Salvos (Itaquera, SP)</span>
+              <span className="text-xs font-bold text-slate-800">Endereço Salvo ({userProfile.address || 'São Paulo, SP'})</span>
             </div>
             <ChevronRight className="w-4 h-4 text-slate-400" />
           </div>
@@ -384,7 +591,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
                 }).catch(() => {});
               }
             }}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition"
+            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
           >
             <Share2 className="w-4 h-4" />
           </button>
@@ -409,3 +616,4 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
     </div>
   );
 };
+

@@ -173,6 +173,35 @@ Uso incorreto de texto ou ícones escuros (`text-slate-950`, `text-slate-900`) s
    - Fundo claro/quente exige texto escuro de alto contraste (`text-slate-900`).
    - Fundo com cor de destaque forte (Verde Esmeralda) exige texto branco puro (`text-white`).
 
+---
+
+## 🌐 11. Apelidos & Nomenclatura dos Projetos no AI Studio (Glossário Mestre)
+
+Para agilizar a comunicação e navegação entre os repositórios e módulos do ecossistema **VagouApp**:
+
+- **`mnvapp`** = `meunegociovagouapp` (App do Parceiro / Salão / Profissional — `seunegocio.vagouapp.com`)
+- **`pvapp`** = `portal.vagouapp.com` (Portal do Cliente / Marketplace — `vagouapp.com`)
+- **`adm.vagouapp.com`** (ou `adm.vapp`) = App Administrativo Master / Painel de Admin (`admin.vagouapp.com`)
+
+---
+
+## 📡 12. Protocolo Inegociável de Sincronização Cruzada da Tríade (VagouApp)
+
+Para garantir harmonia absoluta e zero quebras entre os 3 projetos independentes:
+
+1. **A Regra Circular:**
+   - Toda e qualquer alteração de schema, colunas, status, triggers, rotas ou design system realizada em um projeto **DEVE gerar comunicado oficial detalhado para os outros dois projetos imediatamente**.
+   - `mnvapp` ➔ Comunica para `pvapp` E `admvapp`
+   - `admvapp` ➔ Comunica para `mnvapp` E `pvapp`
+   - `pvapp` ➔ Comunica para `mnvapp` E `admvapp`
+2. **O Padrão do Comunicado Oficial:**
+   - **Cabeçalho:** Identificação formal de Destinatário, Remetente, Assunto, Data e Prioridade.
+   - **O que mudou:** Tabelas impactadas, novos campos ou tipos TypeScript.
+   - **Ação Requerida:** O que o projeto receptor precisa ajustar, tipar ou validar.
+   - **Contraprova:** Confirmação de lint e build aprovados.
+
+
+
 
 
 

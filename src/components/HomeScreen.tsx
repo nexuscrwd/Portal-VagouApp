@@ -8,6 +8,7 @@ import { RadarFullscreenFeed } from './RadarFullscreenFeed';
 import { SalonProfileView } from './SalonProfileView';
 import { VagouLogo } from './VagouLogo';
 import { SalonNavContext } from './BottomNav';
+import { isValidCustomAvatar } from '../utils/avatarUtils';
 import {
   getDeviceCoordinates,
   sortOffersByDistance,
@@ -25,7 +26,6 @@ interface HomeScreenProps {
   isStandalone?: boolean;
   favorites?: string[];
   onToggleFavorite?: (id: string) => void;
-  onSwitchToPartnerMode?: () => void;
   onConfirmBooking?: (offer: ServiceOffer) => void;
   onOpenProfileDrawer?: () => void;
   currentSegment?: 'barbearia' | 'salao' | 'todos';
@@ -51,13 +51,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   isStandalone = false,
   favorites = [],
   onToggleFavorite,
-  onSwitchToPartnerMode,
   onConfirmBooking,
   onOpenProfileDrawer,
   currentSegment = 'barbearia',
   onSelectSegment,
   userName = 'Anderson Silva',
-  userAvatarUrl = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+  userAvatarUrl,
   externalSelectedCategory,
   onCategoryChange,
   onRegisterSalonNav,
@@ -347,13 +346,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             {/* Profile Avatar Button */}
             <button
               onClick={onOpenProfileDrawer}
-              className="relative w-9 h-9 rounded overflow-hidden ring-2 ring-[#20C933]/50 hover:ring-[#20C933] transition-all cursor-pointer flex-shrink-0 flex items-center justify-center bg-slate-900"
+              className="relative w-9 h-9 rounded flex items-center justify-center bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 text-slate-300 transition-all cursor-pointer flex-shrink-0"
               title={isLoggedIn ? "Meu Perfil & Configurações" : "Entrar / Perfil do Usuário"}
             >
-              {isLoggedIn ? (
+              {isLoggedIn && isValidCustomAvatar(userAvatarUrl) ? (
                 <>
                   <img
-                    src={userAvatarUrl}
+                    src={userAvatarUrl!}
                     alt={userName}
                     className="w-full h-full object-cover rounded"
                     referrerPolicy="no-referrer"
@@ -361,9 +360,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-[#20C933] border-2 border-[#151A1E]" />
                 </>
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-300">
-                  <User className="w-4 h-4 text-emerald-400" />
-                </div>
+                <User className="w-4 h-4 stroke-[1.8]" />
               )}
             </button>
           </div>

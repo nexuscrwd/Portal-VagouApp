@@ -8,6 +8,7 @@ import { ServiceOffer } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { getAvailableSlotsForDate } from '../utils/bookingSlots';
 import { hapticLight, hapticMedium, hapticSuccess } from '../utils/haptics';
+import { isValidCustomAvatar } from '../utils/avatarUtils';
 
 export interface CatalogServiceItem {
   id: string;
@@ -660,12 +661,20 @@ export const SalonBookingModal: React.FC<SalonBookingModalProps> = ({
                             : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-slate-300'
                         }`}
                       >
-                        <img
-                          src={prof.avatar}
-                          alt={prof.name}
-                          className="w-6 h-6 rounded object-cover ring-1 ring-emerald-500/30 flex-shrink-0"
-                          referrerPolicy="no-referrer"
-                        />
+                        {isValidCustomAvatar(prof.avatar) ? (
+                          <img
+                            src={prof.avatar}
+                            alt={prof.name}
+                            className="w-6 h-6 rounded object-cover ring-1 ring-emerald-500/30 flex-shrink-0"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className={`w-6 h-6 rounded flex items-center justify-center flex-shrink-0 ${
+                            isDark ? 'bg-slate-800 text-slate-300 border border-slate-700' : 'bg-slate-200 text-slate-700 border border-slate-300'
+                          }`}>
+                            <User className="w-3.5 h-3.5 stroke-[1.8]" />
+                          </div>
+                        )}
                         <div className="min-w-0">
                           <h5 className={`text-[11px] font-bold truncate leading-tight ${
                             isSelected

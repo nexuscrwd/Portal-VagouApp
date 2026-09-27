@@ -15,6 +15,93 @@ Este arquivo registra cronologicamente todas as modificações relevantes realiz
 
 ## 📜 Registros de Alterações
 
+### [2026-09-27] — Sincronização de Perfil de Usuário com Supabase & Padronização Global do Ícone User para Avatares
+- **Tipo:** `[Feat / UI Standardization / Supabase Sync / Anti-Slop / Triad Alignment]`
+- **Motivo / Solicitação:**
+  1. Comunicação Técnica Oficial da Tríade: Criação de `fetchUserProfileFromDb` e `updateUserProfileInDb` para sincronizar formulários de dados pessoais diretamente com as tabelas `clients`, `professionals` e `salons` no Supabase, homologando o registro de Elisa Pires (`elisa.pires@gmail.com`, `11987654321`) e tornando as chaves `vagou_user_email`, `vagou_user_phone` e `vagou_user_name` mandatórias.
+  2. Padronização Global do Avatar: Eliminação de fotos genéricas de estoque (Unsplash) ou cliparts coloridos pesados, substituindo-os pelo ícone vetorial `User` da biblioteca `lucide-react` com traçado fino e elegante (`stroke-[1.8]`) em contêineres harmonizados para Dark e Light Theme.
+- **Arquivos Impactados:**
+  - `src/utils/avatarUtils.ts`: Criada função `isValidCustomAvatar` para filtrar fotos reais de CDN/upload e descartar placeholders ou links de estoque Unsplash.
+  - `src/services/supabaseApi.ts`: Implementadas as funções `fetchUserProfileFromDb` e `updateUserProfileInDb`, com suporte a queries multicamadas e homologação para Elisa Pires.
+  - `src/components/ProfileDrawer.tsx`: Sincronização automática com o Supabase ao abrir a gaveta caso e-mail ou telefone estejam vazios no storage; atualização no Supabase ao salvar; avatar titular e familiar com o ícone vetorial `User` (`stroke-[1.8]`).
+  - `src/components/ProfileScreen.tsx`: Seção "Meus Dados Pessoais" com sincronização direta no Supabase, consulta automática se os dados estiverem vazios e avatar unificado com o ícone `User`.
+  - `src/components/HomeScreen.tsx`: Botão de perfil no topo direito com ícone `User` vetorial e contêiner neutro de alto contraste.
+  - `src/components/SalonProfileView.tsx`: Botão de perfil no cabeçalho e avatares da equipe convertidos para o padrão `User` (`stroke-[1.8]`).
+  - `src/components/SalonBookingModal.tsx`: Lista de profissionais no carrossel de agendamento padronizada com ícone `User` vetorial quando sem foto real.
+  - `src/App.tsx`: Gerenciamento integrado de sessão (`vagou_user_name`, `vagou_user_email`, `vagou_user_phone`) e chamada a `fetchUserProfileFromDb` no login/inicialização.
+- **Protocolo de Limpeza Pós-Obra (Clean Code):**
+  - Zero imports mortos ou variáveis zumbis.
+  - Testado e aprovado com `lint_applet` (`tsc --noEmit`) e `compile_applet` (`npm run build`).
+
+### [2026-09-27] — Remoção Completa da Seção "Meu Negócio" / Parceiro e Expurgo de Arquivos Fantasmas do Portal (`pvapp`)
+- **Tipo:** `[Refactor / Clean Code / Removal / Zero Residues]`
+- **Motivo / Solicitação:** Remoção definitiva da seção e botões de parceiro/estabelecimento ("É dono de salão ou barbearia? Cadastre seu negócio...", painel de gestão, cadastros de empresa) do aplicativo do consumidor (`pvapp`). O app de gestão é soberano e independente no `mnvapp` (`seunegocio.vagouapp.com`).
+- **Arquivos Impactados:**
+  - `src/components/ProfileScreen.tsx`: Removido banner de parceiro/empresa ("É dono de salão ou barbearia?"), removidas props obsoletas (`onSwitchToPartnerMode`, `onOpenPartnerRegistration`) e limpos imports de ícones não utilizados (`Phone`, `Clock`, `Star`).
+  - `src/App.tsx`:
+    - Removida lógica de mirroring em `loadPartnerData`, `handleConfirmBooking` e `handleCancelBooking`.
+    - Removidos estados e rotas do modo parceiro (`appMode === 'partner'`, `PartnerAgendaScreen`, `PartnerScheduleConfigScreen`, `PartnerProfileScreen`, `PartnerBottomNav`).
+    - Removidos modais de gestão parceira (`PartnerAuthModal`, `PartnerPublishModal`, `PartnerRegistrationWizard`, `PartnerOnboardingModal`).
+    - Simplificada a casca da aplicação para o fluxo 100% Marketplace do Consumidor (`pvapp`).
+- **Protocolo de Limpeza Pós-Obra (Clean Code):**
+  - Zero imports mortos ou fantasmas.
+  - Zero arquivos parceiros residuais em `src/components`.
+  - Validação via `lint_applet` (`tsc --noEmit`) e `compile_applet` (`npm run build`) com 100% de sucesso.
+### [2026-09-27] — Varredura Completa do App (100% Conexão de Inputs ao Supabase & Blindagem de Roteamento)
+- **Tipo:** `[Audit / Fix / Supabase Integration / Universal Login]`
+- **Escopo e Varredura Realizada:**
+  - **`App.tsx` (Blindagem de Inicialização & Modo):** Garantido que o `appMode` se mantenha estritamente válido em `'client' | 'partner'`, evitando telas em branco quando parâmetros de URL ou estado anterior fossem acionados.
+  - **`VagouAuthModal.tsx` & `signInWithSupabaseEmail` (Login Global Universal):** Qualquer e-mail, username (`Elisapires@`, `Anderson@`) ou telefone + senha autentica em todo o app via `system_admins`, `salons`, `clients` e `Supabase Auth`.
+  - **`PartnerRegistrationWizard.tsx` (Cadastro de Salão/Parceiro):** Conectado em tempo real ao Supabase Auth na Etapa 1 (`saveOwnerPreliminaryDataToSupabase`) e atualiza dados completos em `salons` na Etapa 3 (`syncSalonDataToSupabase`).
+  - **`PartnerAuthModal.tsx` (Acesso do Parceiro):** Integrado com a resolução global universal do Supabase (`verifySalonPinInSupabase` com fallback para `signInWithSupabaseEmail`).
+  - **`AddFamilyMemberModal.tsx` (Dependentes / Vagou Family):** Sincronização direta com a tabela `client_family_members` via `saveFamilyMemberToSupabase`.
+  - **`PartnerPublishModal.tsx` & `App.tsx` (Ofertas Relâmpago):** Toda publicação de vaga dispara `createServiceOfferInSupabase` gravando na tabela `service_offers`.
+  - **`PartnerScheduleConfigScreen.tsx` & `App.tsx` (Profissionais):** Adição de profissionais grava nativamente em `professionals` no Supabase via `createProfessionalInSupabase`.
+  - **`SalonBookingModal.tsx` & `App.tsx` (Agendamentos):** Todo agendamento cria registro na tabela `appointments` no Supabase com protocolo único.
+- **Validação:** `lint_applet` e `compile_applet` testados e aprovados com **zero erros**.
+
+### [2026-09-26] — Correção e Implementação do Login Universal Global (system_admins, E-mail, Username, WhatsApp)
+- **Tipo:** `[Fix / Authentication / Security / Universal Login]`
+- **Causa Raiz Identificada:** O modal de autenticação enviava o identificador truncado/reformatado direto ao Supabase Auth, o que falhava quando o usuário tentava entrar com um `username` (ex: `Elisapires@`, `Anderson@`) ou telefone, e não verificava a tabela `system_admins` de administradores/gestores do sistema no Supabase.
+- **Solução Implementada:**
+  - `src/services/supabaseApi.ts`: Refatorada a função `signInWithSupabaseEmail` para atuar como resolvedor de autenticação universal em 3 camadas:
+    1. **Camada 1 (`system_admins`):** Busca por `username` (ex: `Elisapires@`), `email` (ex: `elisapires@gmail.com`) ou `phone_whatsapp` na tabela `system_admins` e valida a `password_hash`.
+    2. **Camada 2 (`salons`):** Permite login do parceiro via e-mail, slug ou telefone com validação de PIN/senha.
+    3. **Camada 3 (`Supabase Auth`):** Tenta login nativo via Supabase Auth com fallback inteligente de variações de e-mail e telefone.
+  - `src/components/VagouAuthModal.tsx`: Atualizado formulário e inputs para aceitar expressamente e-mail, username (ex: `Elisapires@`) ou WhatsApp sem forçar substituições indevidas.
+- **Resultado:** Acesso imediato liberado para todos os usuários (`Elisapires@`, `Anderson@`, e-mails convencionais e números de telefone).
+- **Validação:** `lint_applet` e `compile_applet` aprovados com zero erros.
+
+### [2026-09-26] — Emancipação do admvapp & Limpeza Pós-Obra no pvapp
+- **Tipo:** `[Refactor / Architecture / Clean Code / Emancipation]`
+- **Motivo:** O Painel de Admin Master foi totalmente emancipado para sua casa própria e independente (`adm.vagouapp.com` / `admvapp`). Em conformidade com o 5º Mandamento (Clean Code & Zero Poluição) e o 7º Mandamento (Isolamento da Tríade), todos os componentes, rotas, tipos e endpoints temporários de admin foram removidos com sucesso do `pvapp`, deixando o marketplace 100% focado no consumidor final.
+- **Arquivos e Pastas Removidos / Limpos:**
+  - `src/components/admin/` (Diretório e 7 componentes removidos: `AdminMasterApp.tsx`, `AdminSidebar.tsx`, `AdminHeader.tsx`, `AdminKpiCards.tsx`, `AdminSalonsList.tsx`, `AdminModerationPanel.tsx`, `AdminEditSalonModal.tsx`).
+  - `src/types/admin.ts` (Removido).
+  - `src/types.ts` (`AppMode` agora é estritamente `'client' | 'partner'`).
+  - `src/services/supabaseApi.ts` (Removidas funções administrativas `fetchAdminSalons`, `updateAdminSalon`, `fetchAdminDashboardMetrics` e mock data).
+  - `src/components/ProfileDrawer.tsx` (Removido botão e callback de acesso ao admin).
+  - `src/App.tsx` (Removida renderização condicional e imports do admin).
+
+
+### [2026-09-26] — Lei de Governança: Protocolo Inegociável de Sincronização Cruzada da Tríade
+- **Tipo:** `[Governance / Protocol / Triad Cross-Sync]`
+- **Motivo:** Instituição da regra soberana e mandatória da Tríade VagouApp (`pvapp`, `mnvapp`, `admvapp`). Qualquer alteração arquitetural, atualização de schema no Supabase, novo status ou mudança funcional realizada em um projeto deve obrigatoriamente gerar comunicado técnico formal e minucioso para os outros dois projetos.
+- **Arquivos Impactados:**
+  - `AGENTS.md`: Instituído o 7º Mandamento do Protocolo de Engenharia.
+  - `GEMINI.md`: Adicionada a 11ª Regra de Ouro.
+  - `KNOWLEDGE_BASE.md`: Registrada a Seção 12 com os padrões do comunicado circular.
+
+
+### [2026-09-26] — Padronização Corporativa: "Painel de Admin"
+- **Tipo:** `[Branding / UI / Corporate Naming]`
+- **Motivo:** Substituição da nomenclatura "Torre de Controle" para o termo corporativo oficial "Painel de Admin", alinhando a comunicação entre o `mnvapp`, o `pvapp` e o módulo administrativo master.
+- **Arquivos Impactados:**
+  - `src/components/admin/AdminSidebar.tsx`: Subtítulo da marca atualizado para "Painel de Admin".
+  - `src/components/ProfileDrawer.tsx`: Botão de acesso rápido renomeado para "Painel de Admin (Master)".
+  - `KNOWLEDGE_BASE.md`: Glossário mestre atualizado.
+
+
 ### [2026-09-26] — Criação do Super Admin Master App (Torre de Controle & Gestão Centralizada)
 - **Tipo:** `[Feature / Super Admin / Dashboard / Supabase DB / Architecture]`
 - **Motivo:** Implementação da Torre de Controle Administrativa do ecossistema VagouApp, inspirada na referência de design de dashboard executivo (estilo TeamHub). Fornece controle total sobre estabelecimentos cadastrados, auditoria e moderação de cadastros, monitoramento de agendamentos em tempo real, KPIs do ecossistema e correção de dados críticos via Supabase.

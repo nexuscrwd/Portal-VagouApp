@@ -1,15 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   ScreenId,
-  PartnerScreenId,
-  AppMode,
   ServiceOffer,
   BookingAppointment,
-  PartnerProfessional,
-  PartnerAppointmentItem,
-  DayScheduleConfig,
+  FamilyMemberProfile,
 } from './types';
-import { DEFAULT_WEEK_SCHEDULE, MOCK_OFFERS } from './data';
+import { MOCK_OFFERS } from './data';
 import { HomeScreen } from './components/HomeScreen';
 import { PinterestExploreScreen } from './components/PinterestExploreScreen';
 import { MapScreen } from './components/MapScreen';
@@ -23,20 +19,10 @@ import { BottomNav, SalonNavContext } from './components/BottomNav';
 import { SearchModal } from './components/SearchModal';
 import { ProfileDrawer } from './components/ProfileDrawer';
 import { VagouAuthModal } from './components/VagouAuthModal';
-import { PartnerAuthModal } from './components/PartnerAuthModal';
 import { InterestOnboardingModal } from './components/InterestOnboardingModal';
 import { AddFamilyMemberModal } from './components/AddFamilyMemberModal';
 import { InstallModal } from './components/InstallModal';
-import { PartnerAgendaScreen } from './components/PartnerAgendaScreen';
-import { PartnerScheduleConfigScreen } from './components/PartnerScheduleConfigScreen';
-import { PartnerProfileScreen } from './components/PartnerProfileScreen';
-import { PartnerPublishModal } from './components/PartnerPublishModal';
-import { PartnerBottomNav } from './components/PartnerBottomNav';
 import { SplashScreen } from './components/SplashScreen';
-import { PartnerRegistrationWizard } from './components/PartnerRegistrationWizard';
-import { PartnerOnboardingModal } from './components/PartnerOnboardingModal';
-import { SupabaseDiagnosticToast } from './components/SupabaseDiagnosticToast';
-import { AdminMasterApp } from './components/admin/AdminMasterApp';
 import { scheduleAppointmentReminder } from './utils/notifications';
 import { formatSlotDateTime } from './utils/dateFormatter';
 import { useTheme } from './context/ThemeContext';
@@ -44,36 +30,22 @@ import { hapticSuccess } from './utils/haptics';
 import {
   fetchOffersFromSupabase,
   fetchAppointmentsFromSupabase,
-  fetchProfessionalsFromSupabase,
-  fetchPartnerAppointmentsFromSupabase,
   createAppointmentInSupabase,
   subscribeToRealtimeOffers,
-  createProfessionalInSupabase,
-  createServiceOfferInSupabase,
   signOutClient,
   fetchFamilyMembersFromSupabase,
   saveFamilyMemberToSupabase,
   deleteFamilyMemberFromSupabase,
+  fetchUserProfileFromDb,
 } from './services/supabaseApi';
 import {
   getDeviceCoordinates,
   UserCoordinates,
 } from './utils/geolocation';
 import { subscribeToWebPush } from './utils/pushNotifications';
-import { SalonRegistrationPayload, PartnerOnboardingData, FamilyMemberProfile } from './types';
 
 export const App: React.FC = () => {
   const { isDark } = useTheme();
-  // App Mode: 'client' (User looking for appointment), 'partner' (Salon Owner / Professional), or 'admin' (Master Admin)
-  const [appMode, setAppMode] = useState<AppMode>(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const modeParam = urlParams.get('mode') || urlParams.get('admin');
-      if (modeParam === 'admin' || modeParam === 'true') return 'admin';
-    }
-    return 'client';
-  });
-
   // Client Navigation State
   const [currentScreen, setCurrentScreen] = useState<ScreenId>('home');
   const [salonNavContext, setSalonNavContext] = useState<SalonNavContext | null>(null);
@@ -89,7 +61,6 @@ export const App: React.FC = () => {
   const [isInterestModalOpen, setIsInterestModalOpen] = useState<boolean>(false);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
-  const [isPartnerAuthModalOpen, setIsPartnerAuthModalOpen] = useState<boolean>(false);
   const [authPendingOffer, setAuthPendingOffer] = useState<ServiceOffer | null>(null);
 
   // Estado de Autenticação do Usuário (Visitante por Padrão em Produção)
@@ -108,6 +79,12 @@ export const App: React.FC = () => {
       localStorage.setItem('vagou_logged_out', 'true');
       localStorage.removeItem('vagou_current_user');
       localStorage.removeItem('vagou_private_user_profile');
+      localStorage.removeItem('vagou_user_name');
+      localStorage.removeItem('vagou_user_email');
+      localStorage.removeItem('vagou_user_phone');
+      sessionStorage.removeItem('vagou_user_name');
+      sessionStorage.removeItem('vagou_user_email');
+      sessionStorage.removeItem('vagou_user_phone');
       await signOutClient();
     } catch (err) {
       console.warn('Erro ao sair:', err);
@@ -121,12 +98,30 @@ export const App: React.FC = () => {
       localStorage.removeItem('vagou_logged_out');
       localStorage.setItem('vagou_current_user', JSON.stringify(user));
       const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Cliente Vagou';
+      const email = user.email || '';
+      const phone = user.user_metadata?.phone || '';
+
+      sessionStorage.setItem('vagou_user_name', fullName);
+      sessionStorage.setItem('vagou_user_email', email);
+      sessionStorage.setItem('vagou_user_phone', phone);
+      localStorage.setItem('vagou_user_name', fullName);
+      localStorage.setItem('vagou_user_email', email);
+      localStorage.setItem('vagou_user_phone', phone);
+
       localStorage.setItem('vagou_private_user_profile', JSON.stringify({
         fullName,
-        email: user.email || '',
-        phone: user.user_metadata?.phone || '',
+        email,
+        phone,
         address: 'São Paulo, SP',
       }));
+
+      // Sincroniza dados com o Supabase
+      fetchUserProfileFromDb({
+        userId: user.id,
+        email,
+        phone,
+        name: fullName,
+      });
     } catch {}
   };
 
@@ -318,22 +313,8 @@ export const App: React.FC = () => {
     }
   };
 
-  // Carrega profissionais e agenda de parceiro reais do Supabase
-  const loadPartnerData = async () => {
-    try {
-      const profs = await fetchProfessionalsFromSupabase();
-      setProfessionals(profs || []);
-
-      const appts = await fetchPartnerAppointmentsFromSupabase();
-      setPartnerAppointments(appts || []);
-    } catch (err) {
-      console.warn('[Supabase DB] Erro ao carregar dados do parceiro:', err);
-    }
-  };
-
   useEffect(() => {
     loadLiveAppointments();
-    loadPartnerData();
 
     // Roteamento por Subdomínio Dinâmico (ex: nomedonegocio.vagouapp.com) e Parâmetros de URL
     if (typeof window !== 'undefined') {
@@ -473,112 +454,6 @@ export const App: React.FC = () => {
     } catch {}
   };
 
-  // Partner Navigation State
-  const [partnerScreen, setPartnerScreen] = useState<PartnerScreenId>('partner-agenda');
-  const [professionals, setProfessionals] = useState<PartnerProfessional[]>([]);
-  const [partnerAppointments, setPartnerAppointments] = useState<PartnerAppointmentItem[]>([]);
-  const [isPublishModalOpen, setIsPublishModalOpen] = useState<boolean>(false);
-  const [publishPrefill, setPublishPrefill] = useState<{
-    professionalId?: string;
-    time?: string;
-    date?: string;
-  } | undefined>(undefined);
-
-  // Partner Registration & Onboarding State
-  const [isRegisterWizardOpen, setIsRegisterWizardOpen] = useState<boolean>(false);
-  const [registeredSalonData, setRegisteredSalonData] = useState<SalonRegistrationPayload | null>(null);
-  const [registeredSalonId, setRegisteredSalonId] = useState<string | null>(null);
-  const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState<boolean>(false);
-
-  const handleCompleteRegistration = (data: SalonRegistrationPayload, salonId: string) => {
-    setRegisteredSalonData(data);
-    setRegisteredSalonId(salonId);
-    setIsRegisterWizardOpen(false);
-    if (currentScreen === 'cadastro-empresa') {
-      setCurrentScreen('home');
-    }
-    setIsOnboardingModalOpen(true);
-  };
-
-  const handleFinishOnboarding = async (onboardingData: PartnerOnboardingData) => {
-    setIsOnboardingModalOpen(false);
-    if (registeredSalonData) {
-      const salonId = registeredSalonId || `salon-${Date.now()}`;
-      let createdProfId = `prof-${Date.now()}`;
-
-      // 1. Inserir profissional inicial
-      if (onboardingData.primaryProfessionalName) {
-        const newProf: PartnerProfessional = {
-          id: createdProfId,
-          name: onboardingData.primaryProfessionalName,
-          role: onboardingData.primaryProfessionalRole || 'Master Barber',
-          specialties: [registeredSalonData.segment === 'barbearia' ? 'barba' : 'cabelo'],
-          color: registeredSalonData.branding.primaryColor || '#10B981',
-          slotDurationMinutes: onboardingData.primaryProfessionalSlotMinutes || 45,
-          useCustomSchedule: false,
-          schedule: JSON.parse(JSON.stringify(DEFAULT_WEEK_SCHEDULE)),
-        };
-        setProfessionals((prev) => [newProf, ...prev]);
-
-        // Sincroniza profissional com o Supabase
-        const profRes = await createProfessionalInSupabase(
-          salonId,
-          onboardingData.primaryProfessionalName,
-          onboardingData.primaryProfessionalRole || 'Master Barber',
-          [registeredSalonData.segment === 'barbearia' ? 'barba' : 'cabelo'],
-          registeredSalonData.branding.primaryColor || '#10B981',
-          onboardingData.primaryProfessionalSlotMinutes || 45
-        );
-        if (profRes.id) {
-          createdProfId = profRes.id;
-        }
-      }
-
-      // 2. Inserir oferta inicial de demonstração no radar
-      if (onboardingData.services && onboardingData.services.length > 0) {
-        const firstService = onboardingData.services[0];
-        const newOffer: ServiceOffer = {
-          id: `off-reg-${Date.now()}`,
-          salonId,
-          professionalId: createdProfId,
-          salonName: registeredSalonData.name,
-          professionalName: onboardingData.primaryProfessionalName || registeredSalonData.ownerName,
-          serviceTitle: firstService.title,
-          serviceCategory: firstService.category,
-          price: firstService.price,
-          originalPrice: Math.round(firstService.price * 1.3),
-          rating: 5.0,
-          ratingCount: 1,
-          distance: '250 m de você',
-          neighborhood: `${registeredSalonData.neighborhood}, ${registeredSalonData.city}`,
-          timeSlot: 'Hoje • 15:00',
-          dayLabel: 'HOJE',
-          duration: `${firstService.durationMinutes} min`,
-          imageUrl: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=800&q=80',
-          lat: registeredSalonData.latitude || -23.5505,
-          lng: registeredSalonData.longitude || -46.6333,
-          isFlashDeal: true,
-          expiresInMinutes: 45,
-        };
-        setOffers((prev) => [newOffer, ...prev]);
-
-        // Sincroniza oferta relâmpago no Supabase
-        await createServiceOfferInSupabase(
-          salonId,
-          createdProfId,
-          firstService.title,
-          firstService.category,
-          firstService.price,
-          firstService.durationMinutes
-        );
-      }
-    }
-
-    // Transição suave para o Painel do Parceiro
-    setAppMode('partner');
-    setPartnerScreen('partner-agenda');
-  };
-
   // Global Favorites State with LocalStorage
   const [favorites, setFavorites] = useState<string[]>(() => {
     try {
@@ -697,29 +572,6 @@ export const App: React.FC = () => {
       console.warn('Erro ao salvar agendamento no Supabase:', err);
     });
 
-    // Also mirror to Partner Agenda if it's the partner's salon!
-    const todayIso = new Date().toISOString().split('T')[0];
-    const matchingProf = professionals.find((p) => p.name.includes(offer.professionalName)) || professionals[0];
-    const newPartnerAppt: PartnerAppointmentItem = {
-      id: `partner-appt-${Date.now()}`,
-      protocolCode: newProtocol,
-      professionalId: matchingProf.id,
-      professionalName: matchingProf.name,
-      clientName,
-      clientPhone: '+5511987654321',
-      serviceTitle: offer.serviceTitle,
-      serviceCategory: offer.serviceCategory,
-      price: offer.price,
-      dateStr: todayIso,
-      startTime: offer.timeSlot.replace('Hoje • ', '').replace('Amanhã • ', ''),
-      endTime: '15:15',
-      status: 'CONFIRMADO',
-      notes: isDependent
-        ? `Atendimento para dependente: ${dependentName} (Responsável: Anderson Silva).`
-        : 'Agendamento imediato realizado pelo app do cliente.',
-    };
-    setPartnerAppointments((prev) => [newPartnerAppt, ...prev]);
-
     // Trigger PWA reminder notification
     scheduleAppointmentReminder(
       offer.serviceTitle,
@@ -741,145 +593,17 @@ export const App: React.FC = () => {
           : b
       )
     );
-    // Also update partner side
-    setPartnerAppointments((prev) =>
-      prev.map((b) =>
-        b.protocolCode === protocolCode
-          ? { ...b, status: 'CANCELADO' as const }
-          : b
-      )
-    );
-  };
-
-  // Handle Partner Schedule & Breaks Save
-  const handleSavePartnerSchedule = (
-    targetId: string | 'all',
-    schedule: DayScheduleConfig[],
-    slotDuration: number
-  ) => {
-    setProfessionals((prev) =>
-      prev.map((prof) => {
-        if (targetId === 'all' || prof.id === targetId) {
-          return {
-            ...prof,
-            schedule: JSON.parse(JSON.stringify(schedule)),
-            slotDurationMinutes: slotDuration,
-            useCustomSchedule: targetId !== 'all',
-          };
-        }
-        return prof;
-      })
-    );
-  };
-
-  // Handle Partner Add New Professional
-  const handleAddProfessional = (newProfData: Omit<PartnerProfessional, 'id'>) => {
-    const newProf: PartnerProfessional = {
-      ...newProfData,
-      id: `prof-${Date.now()}`,
-    };
-    setProfessionals((prev) => [...prev, newProf]);
-  };
-
-  // Handle Partner Appointment Status Update (Check-in, Concluido, No-Show, etc.)
-  const handleUpdatePartnerAppointmentStatus = (
-    id: string,
-    status: PartnerAppointmentItem['status']
-  ) => {
-    setPartnerAppointments((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status } : a))
-    );
-  };
-
-  // Handle Partner Publishing a Quick Flash Offer
-  const handlePublishOffer = (newOfferData: {
-    professionalId: string;
-    professionalName: string;
-    serviceTitle: string;
-    serviceCategory: 'cabelo' | 'barba' | 'unhas' | 'beleza' | 'estetica';
-    price: number;
-    originalPrice: number;
-    timeSlot: string;
-    dayLabel: string;
-    duration: string;
-    dateIso: string;
-  }) => {
-    const newOfferId = `off-flash-${Date.now()}`;
-    const newServiceOffer: ServiceOffer = {
-      id: newOfferId,
-      salonName: 'Salão & Barbearia Xpress',
-      professionalName: newOfferData.professionalName,
-      serviceTitle: newOfferData.serviceTitle,
-      serviceCategory: newOfferData.serviceCategory,
-      price: newOfferData.price,
-      originalPrice: newOfferData.originalPrice,
-      rating: 4.9,
-      ratingCount: 128,
-      distance: '650 metros de você',
-      neighborhood: 'Itaquera, São Paulo',
-      timeSlot: newOfferData.timeSlot,
-      dayLabel: newOfferData.dayLabel,
-      duration: newOfferData.duration,
-      imageUrl:
-        newOfferData.serviceCategory === 'barba'
-          ? 'https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=800&q=80'
-          : newOfferData.serviceCategory === 'unhas'
-          ? 'https://images.unsplash.com/photo-1632345031435-8727f6897d53?auto=format&fit=crop&w=800&q=80'
-          : 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=800&q=80',
-      lat: -23.535,
-      lng: -46.452,
-      featured: true,
-    };
-
-    // Add to Client offers list
-    setOffers((prev) => [newServiceOffer, ...prev]);
-
-    // Add to Partner appointment list as VAGA_PUBLICADA
-    const newPartnerAppt: PartnerAppointmentItem = {
-      id: `appt-flash-${Date.now()}`,
-      protocolCode: `#VGA-FLASH-${Math.floor(100 + Math.random() * 900)}`,
-      professionalId: newOfferData.professionalId,
-      professionalName: newOfferData.professionalName,
-      clientName: 'Vaga Aberta no Vagou',
-      clientPhone: '',
-      serviceTitle: newOfferData.serviceTitle,
-      serviceCategory: newOfferData.serviceCategory,
-      price: newOfferData.price,
-      dateStr: newOfferData.dateIso,
-      startTime: newOfferData.timeSlot.replace('Hoje • ', '').replace('Amanhã • ', ''),
-      endTime: '16:15',
-      status: 'VAGA_PUBLICADA',
-      notes: 'Oferta relâmpago publicada!',
-    };
-    setPartnerAppointments((prev) => [newPartnerAppt, ...prev]);
   };
 
   const [clientSelectedCategory, setClientSelectedCategory] = useState<string>('flash');
-
-  // SUPER ADMIN MASTER MODE (Full Desktop / Tablet Responsive Torre de Controle)
-  if (appMode === 'admin') {
-    return (
-      <AdminMasterApp
-        onSwitchToClient={() => {
-          setAppMode('client');
-          setCurrentScreen('home');
-        }}
-        onSwitchToPartner={() => {
-          setAppMode('partner');
-          setPartnerScreen('partner-agenda');
-        }}
-      />
-    );
-  }
 
   return (
     <div className={`h-[100dvh] w-full ${isDark ? 'bg-[#151A1E]' : 'bg-slate-200'} sm:bg-slate-200 flex justify-center items-center antialiased selection:bg-[#20C933] selection:text-white overflow-hidden`}>
       {/* Real Fullscreen Mobile Container */}
       <main className={`w-full max-w-md h-[100dvh] ${isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} flex flex-col relative shadow-2xl overflow-hidden font-sans`}>
         
-        {/* CLIENT MODE SCREENS */}
-        {appMode === 'client' && (
-          <div className="flex flex-col h-full w-full overflow-hidden">
+        {/* PORTAL MARKETPLACE CONTAINER */}
+        <div className="flex flex-col h-full w-full overflow-hidden">
             {/* Scrollable Screen Content Container */}
             <div className={`flex-1 min-h-0 w-full relative scroll-smooth ${
               salonNavContext !== null
@@ -906,10 +630,6 @@ export const App: React.FC = () => {
                   onOpenProfileDrawer={() => setIsProfileDrawerOpen(true)}
                   currentSegment={userSegment}
                   onSelectSegment={handleSelectSegment}
-                  onSwitchToPartnerMode={() => {
-                    setAppMode('partner');
-                    setPartnerScreen('partner-agenda');
-                  }}
                   onRegisterSalonNav={setSalonNavContext}
                   onNavigateToAgenda={() => setCurrentScreen('agenda')}
                   userName={currentUser?.user_metadata?.full_name || currentUser?.email || 'Visitante'}
@@ -1018,21 +738,10 @@ export const App: React.FC = () => {
                     setSelectedOffer(off);
                     setCurrentScreen('detalhe-oferta');
                   }}
-                  onSwitchToPartnerMode={() => {
-                    setIsPartnerAuthModalOpen(true);
-                  }}
-                  onOpenPartnerRegistration={() => setIsRegisterWizardOpen(true)}
                   currentUser={currentUser}
                   isLoggedIn={Boolean(currentUser)}
                   onLogout={handleLogout}
                   onOpenAuthModal={() => setIsAuthModalOpen(true)}
-                />
-              )}
-
-              {currentScreen === 'cadastro-empresa' && (
-                <PartnerRegistrationWizard
-                  onBack={() => setCurrentScreen('home')}
-                  onComplete={handleCompleteRegistration}
                 />
               )}
             </div>
@@ -1057,16 +766,7 @@ export const App: React.FC = () => {
               onNavigateToAgenda={() => setCurrentScreen('agenda')}
               onNavigateToFavorites={() => setCurrentScreen('favoritos')}
               favoriteCount={favorites.length}
-              onSwitchToPartnerMode={() => {
-                setIsProfileDrawerOpen(false);
-                setIsPartnerAuthModalOpen(true);
-              }}
-              onOpenPartnerRegistration={() => {
-                setIsProfileDrawerOpen(false);
-                setIsRegisterWizardOpen(true);
-              }}
               onOpenInterestConfig={() => setIsInterestModalOpen(true)}
-              onSwitchToAdminMode={() => setAppMode('admin')}
               currentSegment={userSegment}
               onSelectSegment={handleSelectSegment}
               userName={currentUser?.user_metadata?.full_name || currentUser?.email || 'Visitante'}
@@ -1136,99 +836,7 @@ export const App: React.FC = () => {
                 }
               }}
             />
-
-            {/* Modal de Autenticação Administrativa do Parceiro */}
-            <PartnerAuthModal
-              isOpen={isPartnerAuthModalOpen}
-              onClose={() => setIsPartnerAuthModalOpen(false)}
-              onSuccess={() => {
-                setIsPartnerAuthModalOpen(false);
-                setAppMode('partner');
-                setPartnerScreen('partner-agenda');
-              }}
-            />
           </div>
-        )}
-
-        {/* PARTNER / ESTABELECIMENTO MODE SCREENS */}
-        {appMode === 'partner' && (
-          <div className="flex flex-col h-full w-full overflow-hidden">
-            {/* Scrollable Screen Content Container for Partner */}
-            <div className="flex-1 w-full overflow-y-auto overflow-x-hidden relative">
-              {partnerScreen === 'partner-agenda' && (
-                <PartnerAgendaScreen
-                  appointments={partnerAppointments}
-                  professionals={professionals}
-                  onOpenPublishModal={(prefill) => {
-                    setPublishPrefill(prefill);
-                    setIsPublishModalOpen(true);
-                  }}
-                  onUpdateAppointmentStatus={handleUpdatePartnerAppointmentStatus}
-                  onNavigateToScheduleConfig={() => setPartnerScreen('partner-schedule-config')}
-                />
-              )}
-
-              {partnerScreen === 'partner-publish' && (
-                <PartnerAgendaScreen
-                  appointments={partnerAppointments}
-                  professionals={professionals}
-                  onOpenPublishModal={(prefill) => {
-                    setPublishPrefill(prefill);
-                    setIsPublishModalOpen(true);
-                  }}
-                  onUpdateAppointmentStatus={handleUpdatePartnerAppointmentStatus}
-                  onNavigateToScheduleConfig={() => setPartnerScreen('partner-schedule-config')}
-                />
-              )}
-
-              {partnerScreen === 'partner-schedule-config' && (
-                <PartnerScheduleConfigScreen
-                  professionals={professionals}
-                  onSaveSchedule={handleSavePartnerSchedule}
-                  onAddProfessional={handleAddProfessional}
-                  onBack={() => setPartnerScreen('partner-agenda')}
-                  onNavigateToHome={() => {
-                    setAppMode('client');
-                    setCurrentScreen('home');
-                  }}
-                />
-              )}
-
-              {partnerScreen === 'partner-profile' && (
-                <PartnerProfileScreen
-                  professionals={professionals}
-                  onSwitchToClientMode={() => {
-                    setAppMode('client');
-                    setCurrentScreen('home');
-                  }}
-                  onNavigateToHome={() => {
-                    setAppMode('client');
-                    setCurrentScreen('home');
-                  }}
-                  onNavigateToScheduleConfig={() => setPartnerScreen('partner-schedule-config')}
-                  onOpenPublishModal={() => {
-                    setPublishPrefill(undefined);
-                    setIsPublishModalOpen(true);
-                  }}
-                  onOpenPartnerRegistration={() => setIsRegisterWizardOpen(true)}
-                />
-              )}
-            </div>
-
-            {/* Partner Bottom Navigation - Fixed and Permanent at bottom */}
-            <PartnerBottomNav
-              currentScreen={partnerScreen}
-              onSelectScreen={(screen) => {
-                if (screen === 'partner-publish') {
-                  setPublishPrefill(undefined);
-                  setIsPublishModalOpen(true);
-                } else {
-                  setPartnerScreen(screen);
-                }
-              }}
-            />
-          </div>
-        )}
 
         {/* Universal Multi-Browser Install Modal */}
         <InstallModal
@@ -1236,35 +844,6 @@ export const App: React.FC = () => {
           onClose={() => setShowInstallModal(false)}
           onNativeInstall={handleNativeInstall}
           hasNativePrompt={!!deferredPrompt}
-        />
-
-        {/* Quick Flash Offer Publish Modal (Partner) */}
-        <PartnerPublishModal
-          isOpen={isPublishModalOpen}
-          onClose={() => setIsPublishModalOpen(false)}
-          professionals={professionals}
-          onPublishOffer={handlePublishOffer}
-          initialPrefill={publishPrefill}
-        />
-
-        {/* Fullscreen Partner Registration Wizard Modal (Portal de Cadastro de Empresas) */}
-        {isRegisterWizardOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md">
-            <div className="w-full max-w-md h-full bg-slate-950 flex flex-col overflow-hidden">
-              <PartnerRegistrationWizard
-                onBack={() => setIsRegisterWizardOpen(false)}
-                onComplete={handleCompleteRegistration}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Post-Registration Partner Onboarding Modal */}
-        <PartnerOnboardingModal
-          isOpen={isOnboardingModalOpen}
-          onClose={() => setIsOnboardingModalOpen(false)}
-          salonData={registeredSalonData}
-          onFinishOnboarding={handleFinishOnboarding}
         />
 
         {/* Official Brand Splash Screen (Manual de Identidade Visual) */}

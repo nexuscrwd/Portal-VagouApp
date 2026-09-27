@@ -39,19 +39,15 @@ export const VagouAuthModal: React.FC<VagouAuthModalProps> = ({
     e.preventDefault();
     setErrorMessage(null);
     if (!loginIdentifier.trim() || !loginPassword) {
-      setErrorMessage('Informe seu e-mail e senha.');
+      setErrorMessage('Informe seu e-mail, usuário ou WhatsApp e a senha.');
       return;
     }
 
     setIsLoading(true);
     try {
-      const emailToUse = loginIdentifier.includes('@')
-        ? loginIdentifier.trim()
-        : `${loginIdentifier.replace(/\D/g, '')}@cliente.vagou.app`;
-
-      const res = await signInWithSupabaseEmail(emailToUse, loginPassword);
+      const res = await signInWithSupabaseEmail(loginIdentifier.trim(), loginPassword);
       if (res.error) {
-        setErrorMessage(res.error.includes('Invalid') ? 'E-mail ou senha incorretos.' : res.error);
+        setErrorMessage(res.error);
         setIsLoading(false);
         return;
       }
@@ -209,7 +205,7 @@ export const VagouAuthModal: React.FC<VagouAuthModalProps> = ({
               <form onSubmit={handleLoginSubmit} className="space-y-2.5">
                 <div>
                   <label className="block text-[10px] font-medium text-slate-300 mb-1">
-                    E-mail ou WhatsApp
+                    E-mail, Usuário ou WhatsApp
                   </label>
                   <div className="relative">
                     <Mail className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -217,7 +213,7 @@ export const VagouAuthModal: React.FC<VagouAuthModalProps> = ({
                       type="text"
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
-                      placeholder="seu@email.com ou (11) 99999-9999"
+                      placeholder="E-mail, username (ex: Elisapires@) ou WhatsApp"
                       required
                       className="w-full pl-8 pr-2.5 py-1.5 rounded-[4px] bg-slate-900 border border-slate-800 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-emerald-500 transition"
                     />

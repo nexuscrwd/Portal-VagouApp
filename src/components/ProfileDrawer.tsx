@@ -16,21 +16,20 @@ import {
   Edit2,
   Check,
   Shield,
-  Building2,
-  Store,
   LogOut,
   LogIn,
   Users,
   Plus,
   Baby,
   Trash2,
-  ShieldCheck,
   Sparkles,
   FileText,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { hapticLight, hapticSuccess } from '../utils/haptics';
 import { FamilyMemberProfile } from '../types';
+import { isValidCustomAvatar } from '../utils/avatarUtils';
+import { fetchUserProfileFromDb, updateUserProfileInDb } from '../services/supabaseApi';
 
 interface UserPrivateProfile {
   fullName: string;
@@ -45,8 +44,6 @@ interface ProfileDrawerProps {
   onNavigateToAgenda: () => void;
   onNavigateToFavorites?: () => void;
   favoriteCount?: number;
-  onSwitchToPartnerMode: () => void;
-  onOpenPartnerRegistration?: () => void;
   onOpenInterestConfig: () => void;
   onOpenHelpModal?: () => void;
   currentSegment?: string;
@@ -62,7 +59,6 @@ interface ProfileDrawerProps {
   onOpenAddFamilyModal?: () => void;
   onEditFamilyMember?: (member: FamilyMemberProfile) => void;
   onDeleteFamilyMember?: (id: string) => void;
-  onSwitchToAdminMode?: () => void;
 }
 
 export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
@@ -71,12 +67,10 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
   onNavigateToAgenda,
   onNavigateToFavorites,
   favoriteCount,
-  onSwitchToPartnerMode,
-  onOpenPartnerRegistration,
   onOpenInterestConfig,
   onOpenHelpModal,
   userName = 'Cliente Vagou',
-  userAvatarUrl = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+  userAvatarUrl,
   isLoggedIn = false,
   onLogout,
   onOpenAuthModal,
@@ -86,20 +80,22 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
   onOpenAddFamilyModal,
   onEditFamilyMember,
   onDeleteFamilyMember,
-  onSwitchToAdminMode,
 }) => {
   const { isDark, toggleTheme } = useTheme();
 
   // Perfil privado do usuário (carregado do localStorage)
   const [profile, setProfile] = useState<UserPrivateProfile>(() => {
     try {
+      const sessionEmail = sessionStorage.getItem('vagou_user_email') || localStorage.getItem('vagou_user_email');
+      const sessionPhone = sessionStorage.getItem('vagou_user_phone') || localStorage.getItem('vagou_user_phone');
+      const sessionName = sessionStorage.getItem('vagou_user_name') || localStorage.getItem('vagou_user_name');
       const saved = localStorage.getItem('vagou_private_user_profile');
       if (saved) {
         const parsed = JSON.parse(saved);
         return {
-          fullName: parsed.fullName || userName || 'Cliente Vagou',
-          email: parsed.email || '',
-          phone: parsed.phone || '',
+          fullName: parsed.fullName || sessionName || userName || 'Cliente Vagou',
+          email: parsed.email || sessionEmail || '',
+          phone: parsed.phone || sessionPhone || '',
           address: parsed.address || 'São Paulo, SP',
         };
       }
@@ -113,6 +109,39 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
       address: 'São Paulo, SP',
     };
   });
+
+  // Consulta e sincronização com o Supabase quando a gaveta é aberta
+  React.useEffect(() => {
+    if (isOpen) {
+      const sessionEmail = sessionStorage.getItem('vagou_user_email') || localStorage.getItem('vagou_user_email');
+      const sessionPhone = sessionStorage.getItem('vagou_user_phone') || localStorage.getItem('vagou_user_phone');
+
+      if (!sessionEmail || !sessionPhone || !profile.email || !profile.phone) {
+        fetchUserProfileFromDb({
+          name: profile.fullName || userName,
+          email: sessionEmail || profile.email,
+          phone: sessionPhone || profile.phone,
+        }).then((dbData) => {
+          if (dbData) {
+            setProfile((prev) => ({
+              ...prev,
+              fullName: dbData.fullName || prev.fullName,
+              email: dbData.email || prev.email,
+              phone: dbData.phone || prev.phone,
+              address: dbData.address || prev.address,
+            }));
+            setFormData((prev) => ({
+              ...prev,
+              fullName: dbData.fullName || prev.fullName,
+              email: dbData.email || prev.email,
+              phone: dbData.phone || prev.phone,
+              address: dbData.address || prev.address,
+            }));
+          }
+        });
+      }
+    }
+  }, [isOpen, userName]);
 
   // Atualiza perfil quando o nome ou status mudar
   React.useEffect(() => {
@@ -134,16 +163,18 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
     setSaveSuccess(false);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfile(formData);
     try {
       localStorage.setItem('vagou_private_user_profile', JSON.stringify(formData));
+      await updateUserProfileInDb(formData);
     } catch {
       // ignore
     }
     setIsEditing(false);
     setSaveSuccess(true);
+    hapticSuccess();
     setTimeout(() => setSaveSuccess(false), 2500);
   };
 
@@ -166,21 +197,25 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
           }`}>
             <div className="flex items-center gap-3 min-w-0">
               <div className="relative shrink-0">
-                {isLoggedIn ? (
+                {isLoggedIn && isValidCustomAvatar(userAvatarUrl) ? (
                   <>
                     <img
-                      src={userAvatarUrl}
+                      src={userAvatarUrl!}
                       alt={profile.fullName}
-                      className="w-12 h-12 rounded-full object-cover border-2 border-[#20C933]"
+                      className="w-12 h-12 rounded object-cover border-2 border-[#20C933]"
                       referrerPolicy="no-referrer"
                     />
-                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#20C933] flex items-center justify-center text-white">
+                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded bg-[#20C933] flex items-center justify-center text-white">
                       <UserCheck className="w-2.5 h-2.5 stroke-[3]" />
                     </div>
                   </>
                 ) : (
-                  <div className="w-12 h-12 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center text-slate-400">
-                    <User className="w-6 h-6 text-slate-400" />
+                  <div className={`w-12 h-12 rounded flex items-center justify-center ${
+                    isDark
+                      ? 'bg-slate-900/80 border border-slate-800 text-slate-300'
+                      : 'bg-slate-100 border border-slate-200 text-slate-700 shadow-xs'
+                  }`}>
+                    <User className="w-6 h-6 stroke-[1.8]" />
                   </div>
                 )}
               </div>
@@ -267,14 +302,20 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                       : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
                   }`}
                 >
-                  <div className="relative w-10 h-10 rounded-full overflow-hidden border border-slate-700">
-                    <img
-                      src={userAvatarUrl}
-                      alt={profile.fullName}
-                      className="w-full h-full object-cover"
-                    />
+                  <div className={`relative w-10 h-10 rounded overflow-hidden border flex items-center justify-center ${
+                    isDark ? 'bg-slate-900/80 border-slate-800 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
+                  }`}>
+                    {isValidCustomAvatar(userAvatarUrl) ? (
+                      <img
+                        src={userAvatarUrl!}
+                        alt={profile.fullName}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="w-5 h-5 stroke-[1.8]" />
+                    )}
                     {activeFamilyProfileId === 'titular' && (
-                      <span className="absolute inset-0 bg-emerald-500/20 border-2 border-[#20C933] rounded-full" />
+                      <span className="absolute inset-0 bg-emerald-500/20 border-2 border-[#20C933] rounded" />
                     )}
                   </div>
                   <span className="text-[10px] font-bold max-w-[58px] truncate text-center text-slate-200">
@@ -744,88 +785,6 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
               </div>
               <ChevronRight className={`w-4 h-4 transition ${isDark ? 'text-slate-500 group-hover:text-white' : 'text-slate-400 group-hover:text-slate-900'}`} />
             </button>
-
-            {/* SEJA PARCEIRO / CADASTRO DE EMPRESA */}
-            <div className="pt-2 border-t border-slate-800/60 space-y-2">
-              <button
-                id="btn-drawer-register-partner"
-                onClick={() => {
-                  onClose();
-                  if (onOpenPartnerRegistration) {
-                    onOpenPartnerRegistration();
-                  } else {
-                    onSwitchToPartnerMode();
-                  }
-                }}
-                className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition group cursor-pointer ${
-                  isDark
-                    ? 'bg-emerald-950/30 hover:bg-emerald-950/60 border-emerald-500/40 text-white'
-                    : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-slate-900 shadow-xs'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold">
-                    <Building2 className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className={`text-xs font-bold block ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                        Cadastre seu Estabelecimento
-                      </span>
-                      <span className="text-[9px] bg-emerald-500 text-white font-bold px-1.5 py-0.5 rounded-full">
-                        Grátis
-                      </span>
-                    </div>
-                    <span className={`text-[10px] ${isDark ? 'text-emerald-400/80' : 'text-emerald-700'}`}>
-                      Seja parceiro e publique vagas relâmpago
-                    </span>
-                  </div>
-                </div>
-                <ChevronRight className={`w-4 h-4 transition ${isDark ? 'text-emerald-400 group-hover:text-white' : 'text-emerald-600 group-hover:text-slate-900'}`} />
-              </button>
-
-              <button
-                id="btn-drawer-switch-partner"
-                onClick={() => {
-                  onClose();
-                  onSwitchToPartnerMode();
-                }}
-                className={`w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition cursor-pointer ${
-                  isDark
-                    ? 'bg-slate-900/60 hover:bg-slate-800 border-slate-800/80 text-slate-300'
-                    : 'bg-white hover:bg-slate-100 border-slate-200 text-slate-700'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <Store className="w-4 h-4 text-slate-400" />
-                  <span className="text-xs font-medium">Já sou parceiro: Acessar Painel</span>
-                </div>
-                <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
-              </button>
-
-              {onSwitchToAdminMode && (
-                <button
-                  id="btn-drawer-switch-admin"
-                  onClick={() => {
-                    onClose();
-                    onSwitchToAdminMode();
-                  }}
-                  className={`w-full p-2.5 rounded-xl border text-left flex items-center justify-between transition cursor-pointer ${
-                    isDark
-                      ? 'bg-emerald-950/30 hover:bg-emerald-950/60 border-emerald-500/30 text-emerald-300'
-                      : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    <span className="text-xs font-bold">Torre de Controle (Master Admin)</span>
-                  </div>
-                  <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    Master
-                  </span>
-                </button>
-              )}
-            </div>
 
             {/* Botão Sair da Conta */}
             {isLoggedIn && onLogout && (

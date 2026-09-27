@@ -3,7 +3,7 @@ import {
   ArrowLeft, MapPin, Clock, 
   Heart, Zap, 
   Calendar, Coffee, Wifi, Car, Wind,
-  Bell, Users, Store,
+  Bell, Users, Store, User,
   ChevronLeft, ChevronRight, ChevronDown, ArrowRight,
   Share2, Check, MessageCircle,
   Scissors, Hand, Smile, Eye, Sparkles
@@ -17,6 +17,7 @@ import { getSalonLogo } from '../utils/salonLogos';
 import { SalonNavContext } from './BottomNav';
 import { getAvailableSlotsForDate } from '../utils/bookingSlots';
 import { hapticSuccess, hapticLight } from '../utils/haptics';
+import { isValidCustomAvatar } from '../utils/avatarUtils';
 
 export interface SalonProfileViewProps {
   salonName: string;
@@ -78,7 +79,7 @@ export const SalonProfileView: React.FC<SalonProfileViewProps> = ({
   isFavorite = false,
   onToggleFavorite,
   userName = 'Lucas Silva',
-  userAvatarUrl = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+  userAvatarUrl,
   onOpenProfileDrawer,
   onRegisterBottomNav,
   initialBookingOffer,
@@ -719,19 +720,27 @@ export const SalonProfileView: React.FC<SalonProfileViewProps> = ({
             <span className={`absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500 ring-2 ${isDark ? 'ring-slate-950' : 'ring-white'}`} />
           </button>
 
-          {/* Foto do Usuário (No cabeçalho principal após as notificações) */}
+          {/* Foto/Ícone do Usuário (No cabeçalho principal após as notificações) */}
           <button
             onClick={onOpenProfileDrawer}
-            className="relative group flex items-center justify-center shrink-0 w-10 h-10 rounded overflow-hidden ring-1.5 ring-emerald-500 hover:ring-emerald-400 transition shadow-xs cursor-pointer bg-slate-800"
+            className={`relative group flex items-center justify-center shrink-0 w-10 h-10 rounded transition-all cursor-pointer ${
+              isDark
+                ? 'bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 text-slate-300'
+                : 'bg-slate-100 hover:bg-slate-200 border border-slate-200 shadow-xs hover:border-emerald-500/40 text-slate-700'
+            }`}
             title="Ver Perfil do Usuário e Opções"
             aria-label="Perfil do Usuário e Opções"
           >
-            <img
-              src={userAvatarUrl}
-              alt={userName}
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
+            {isValidCustomAvatar(userAvatarUrl) ? (
+              <img
+                src={userAvatarUrl!}
+                alt={userName}
+                className="w-full h-full object-cover rounded"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <User className="w-5 h-5 stroke-[1.8]" />
+            )}
           </button>
         </div>
       </header>
@@ -1237,14 +1246,26 @@ export const SalonProfileView: React.FC<SalonProfileViewProps> = ({
                             key={idx} 
                             className="flex flex-col items-center text-center"
                           >
-                            <img
-                              src={prof.avatar}
-                              alt={prof.name}
-                              className={`w-20 h-20 sm:w-24 sm:h-24 aspect-square rounded object-cover shadow-xs mb-2 border ${
-                                isDark ? 'border-slate-800' : 'border-slate-200'
-                              }`}
-                              referrerPolicy="no-referrer"
-                            />
+                            {isValidCustomAvatar(prof.avatar) ? (
+                              <img
+                                src={prof.avatar}
+                                alt={prof.name}
+                                className={`w-20 h-20 sm:w-24 sm:h-24 aspect-square rounded object-cover shadow-xs mb-2 border ${
+                                  isDark ? 'border-slate-800' : 'border-slate-200'
+                                }`}
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <div
+                                className={`w-20 h-20 sm:w-24 sm:h-24 aspect-square rounded flex items-center justify-center shadow-xs mb-2 border ${
+                                  isDark
+                                    ? 'bg-slate-900/80 border-slate-800 text-slate-300'
+                                    : 'bg-slate-100 border-slate-200 text-slate-700'
+                                }`}
+                              >
+                                <User className="w-8 h-8 sm:w-10 sm:h-10 stroke-[1.8]" />
+                              </div>
+                            )}
                             <h5 className={`text-xs font-bold leading-tight truncate w-full px-1 ${isDark ? 'text-white' : 'text-slate-900'}`}>
                               {prof.name}
                             </h5>

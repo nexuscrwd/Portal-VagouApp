@@ -4,7 +4,7 @@
 
 ---
 
-## 🛑 1. O Protocolo dos 6 Mandamentos
+## 🛑 1. O Protocolo dos 7 Mandamentos
 
 ### 1. Leitura Prévia Obrigatória da Documentação (`.md`)
 - Antes de qualquer modificação de código ou tomada de decisão arquitetural, consulte:
@@ -48,6 +48,13 @@
   - Motivo da mudança.
   - Arquivos e componentes afetados.
   - Resumo das mudanças para permitir rollback imediato se necessário.
+
+### 7. 📡 Protocolo Inegociável de Sincronização da Tríade (Comunicado Oficial Cruzado)
+- **REGRA DE OURO E OBRIGATÓRIA:** Toda e qualquer alteração, atualização, refatoração de schema no Supabase, novo status, regra de negócio ou evento de infraestrutura realizado em qualquer um dos projetos **DEVE OBRIGATORIAMENTE** gerar o comunicado técnico oficial correspondente para os outros projetos irmãos:
+  - **Alteração no `mnvapp`:** Comunicado técnico oficial obrigatório para o `pvapp` E para o `admvapp`.
+  - **Alteração no `pvapp`:** Comunicado técnico oficial obrigatório para o `mnvapp` E para o `admvapp`.
+  - **Alteração no `admvapp`:** Comunicado técnico oficial obrigatório para o `mnvapp` E para o `pvapp`.
+- **Formato do Comunicado:** Deve ser minucioso, formal, estruturado com resumo do impacto, mudanças de tipos/colunas do Supabase e instruções de ação imediata. Zero pontas soltas na Tríade.
 
 ---
 
