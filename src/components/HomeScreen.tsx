@@ -9,6 +9,7 @@ import { SalonProfileView } from './SalonProfileView';
 import { VagouLogo } from './VagouLogo';
 import { SalonNavContext } from './BottomNav';
 import { isValidCustomAvatar } from '../utils/avatarUtils';
+import { useTheme } from '../context/ThemeContext';
 import {
   getDeviceCoordinates,
   sortOffersByDistance,
@@ -38,6 +39,7 @@ interface HomeScreenProps {
   onNavigateToAgenda?: () => void;
   userCoords?: UserCoordinates | null;
   isLoggedIn?: boolean;
+  onOpenAuthModal?: () => void;
   activeFamilyProfile?: FamilyMemberProfile | null;
   onOpenAddFamilyModal?: () => void;
 }
@@ -62,10 +64,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onRegisterSalonNav,
   onNavigateToAgenda,
   userCoords: propUserCoords,
-  isLoggedIn = true,
+  isLoggedIn = false,
+  onOpenAuthModal,
   activeFamilyProfile = null,
   onOpenAddFamilyModal,
 }) => {
+  const { isDark } = useTheme();
   const [internalSelectedCategory, setInternalSelectedCategory] = useState<string>('barba');
   const selectedCategory = externalSelectedCategory !== undefined ? externalSelectedCategory : internalSelectedCategory;
   const setSelectedCategory = (cat: string) => {
@@ -268,9 +272,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const isFullscreenFeed = feedLayoutMode === 'fullscreen';
 
   return (
-    <div className={`bg-slate-950 text-slate-100 ${isFullscreenFeed ? 'h-full flex flex-col overflow-hidden' : 'min-h-full pb-0'}`}>
+    <div className={`${isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-100/70 text-slate-900'} ${isFullscreenFeed ? 'h-full flex flex-col overflow-hidden' : 'min-h-full pb-0'}`}>
       {/* Fixed Sticky Global Header */}
-      <div className="flex-shrink-0 sticky top-0 z-40 bg-[#151A1E] shadow-xl border-b border-slate-800">
+      <div className={`flex-shrink-0 sticky top-0 z-40 border-b transition-colors ${
+        isDark ? 'bg-[#151A1E] border-slate-800 shadow-xl' : 'bg-white border-slate-200 shadow-sm'
+      }`}>
         <div className="px-4 h-[60px] w-full flex items-center justify-between gap-3">
           {/* Brand Logo & Current Location Badge */}
           <div className="flex items-center gap-2 min-w-0">
@@ -279,7 +285,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               <button
                 id="btn-location-chip"
                 onClick={onNavigateToMap}
-                className="hidden xs:flex items-center gap-1 px-2 py-0.5 rounded bg-slate-900 border border-slate-800 hover:border-[#20C933] text-slate-300 hover:text-white transition text-[11px] font-medium cursor-pointer max-w-[130px] sm:max-w-[170px] truncate group"
+                className={`hidden xs:flex items-center gap-1 px-2 py-0.5 rounded border transition text-[11px] font-medium cursor-pointer max-w-[130px] sm:max-w-[170px] truncate group ${
+                  isDark
+                    ? 'bg-slate-900 border-slate-800 hover:border-[#20C933] text-slate-300 hover:text-white'
+                    : 'bg-slate-100 border-slate-200 hover:border-[#20C933] text-slate-700 hover:text-slate-900'
+                }`}
                 title={`Localização: ${currentAddress.formatted}. Toque para abrir o mapa.`}
               >
                 <MapPin className="w-3 h-3 text-[#20C933] shrink-0 group-hover:scale-110 transition-transform" />
@@ -291,8 +301,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {/* Layout Mode Toggle, Filter & Profile */}
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Botão de Filtro (Ordenação) */}
-            <div className="relative flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-[#20C933] transition-colors shadow-sm group">
-              <Filter className="w-3.5 h-3.5 md:w-4 md:h-4 text-slate-300 group-hover:text-[#20C933] transition-colors" />
+            <div className={`relative flex items-center justify-center w-8 h-8 md:w-9 md:h-9 rounded border transition-colors shadow-sm group ${
+              isDark ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 hover:border-[#20C933]' : 'bg-slate-100 hover:bg-slate-200 border-slate-200 hover:border-[#20C933]'
+            }`}>
+              <Filter className={`w-3.5 h-3.5 md:w-4 md:h-4 group-hover:text-[#20C933] transition-colors ${isDark ? 'text-slate-300' : 'text-slate-700'}`} />
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
@@ -309,7 +321,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               )}
             </div>
 
-            <div className="flex items-center bg-slate-900 p-0.5 md:p-1 rounded border border-slate-800 shadow-inner">
+            <div className={`flex items-center p-0.5 md:p-1 rounded border ${
+              isDark ? 'bg-slate-900 border-slate-800 shadow-inner' : 'bg-slate-100 border-slate-200'
+            }`}>
               {/* Botão Reels / Insta / TikTok (Tela Cheia) */}
               <button
                 type="button"
@@ -317,7 +331,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 className={`px-2 py-1 rounded text-xs transition cursor-pointer flex items-center gap-1 font-bold ${
                   feedLayoutMode === 'fullscreen'
                     ? 'bg-[#20C933] text-white font-bold drop-shadow-xs shadow-sm'
-                    : 'text-slate-400 hover:text-white'
+                    : isDark
+                    ? 'text-slate-400 hover:text-white'
+                    : 'text-slate-500 hover:text-slate-900'
                 }`}
                 title="Modo Vertical Reels / TikTok"
                 aria-label="Modo Vertical Reels / TikTok"
@@ -333,7 +349,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 className={`px-2 py-1 rounded text-xs transition cursor-pointer flex items-center gap-1 font-bold ${
                   feedLayoutMode === 'pinterest' || feedLayoutMode === 'cards'
                     ? 'bg-[#20C933] text-white font-bold drop-shadow-xs shadow-sm'
-                    : 'text-slate-400 hover:text-white'
+                    : isDark
+                    ? 'text-slate-400 hover:text-white'
+                    : 'text-slate-500 hover:text-slate-900'
                 }`}
                 title="Modo Pinterest (Grid de Inspirações e Vagas)"
                 aria-label="Modo Pinterest Grid"
@@ -343,31 +361,53 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </button>
             </div>
 
-            {/* Profile Avatar Button */}
-            <button
-              onClick={onOpenProfileDrawer}
-              className="relative w-9 h-9 rounded flex items-center justify-center bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-emerald-500/40 text-slate-300 transition-all cursor-pointer flex-shrink-0"
-              title={isLoggedIn ? "Meu Perfil & Configurações" : "Entrar / Perfil do Usuário"}
-            >
-              {isLoggedIn && isValidCustomAvatar(userAvatarUrl) ? (
-                <>
-                  <img
-                    src={userAvatarUrl!}
-                    alt={userName}
-                    className="w-full h-full object-cover rounded"
-                    referrerPolicy="no-referrer"
-                  />
-                  <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-[#20C933] border-2 border-[#151A1E]" />
-                </>
-              ) : (
-                <User className="w-4 h-4 stroke-[1.8]" />
-              )}
-            </button>
+            {/* Profile Avatar Button (Logged In) / Entrar Button (Not Logged In) */}
+            {isLoggedIn ? (
+              <button
+                onClick={onOpenProfileDrawer}
+                className={`relative w-9 h-9 rounded flex items-center justify-center border transition-all cursor-pointer flex-shrink-0 ${
+                  isDark
+                    ? 'bg-slate-900/80 hover:bg-slate-800 border-slate-800 hover:border-emerald-500/40 text-slate-300'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 hover:border-emerald-500/40 text-slate-700 shadow-xs'
+                }`}
+                title="Meu Perfil & Configurações"
+                aria-label="Meu Perfil e Configurações"
+              >
+                {isValidCustomAvatar(userAvatarUrl) ? (
+                  <>
+                    <img
+                      src={userAvatarUrl!}
+                      alt={userName}
+                      className="w-full h-full object-cover rounded"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-[#20C933] border-2 border-[#151A1E]" />
+                  </>
+                ) : (
+                  <User className="w-4 h-4 stroke-[1.8]" />
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={onOpenAuthModal || onOpenProfileDrawer}
+                className={`px-2.5 py-1.5 rounded border text-xs font-bold transition cursor-pointer flex items-center justify-center flex-shrink-0 shadow-xs ${
+                  isDark
+                    ? 'bg-slate-900 hover:bg-slate-800 border-slate-800 hover:border-emerald-500/40 text-slate-200 hover:text-white'
+                    : 'bg-white hover:bg-slate-100 border-slate-200 hover:border-emerald-500/40 text-slate-800 shadow-xs'
+                }`}
+                title="Entrar na Conta"
+                aria-label="Entrar na conta"
+              >
+                Entrar
+              </button>
+            )}
           </div>
         </div>
 
         {/* Stories / Carrossel de Salões */}
-        <div className="px-4 py-2.5 flex items-center gap-3 overflow-x-auto no-scrollbar border-b border-slate-800/60 bg-slate-950/40">
+        <div className={`px-4 py-2.5 flex items-center gap-3 overflow-x-auto no-scrollbar border-b ${
+          isDark ? 'border-slate-800/60 bg-slate-950/40' : 'border-slate-200 bg-slate-50'
+        }`}>
               {Array.from(new Set(offers.map((o) => o.salonName))).map((salonName) => {
                 const salonOffer = offers.find((o) => o.salonName === salonName);
                 const isSelected = selectedSalonFilter === salonName;
@@ -390,7 +430,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                           : 'bg-gradient-to-tr from-emerald-500/60 via-[#20C933] to-emerald-300 hover:scale-105'
                       }`}
                     >
-                      <div className="w-full h-full rounded overflow-hidden bg-slate-900 border border-slate-800">
+                      <div className={`w-full h-full rounded overflow-hidden border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'}`}>
                         <img
                           src={salonOffer?.imageUrl || 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=200&q=80'}
                           alt={salonName}
@@ -399,7 +439,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         />
                       </div>
                     </div>
-                    <span className={`text-[10px] font-bold max-w-[64px] truncate ${isSelected ? 'text-[#20C933]' : 'text-slate-300 group-hover:text-white'}`}>
+                    <span className={`text-[10px] font-bold max-w-[64px] truncate ${
+                      isSelected
+                        ? 'text-[#20C933]'
+                        : isDark
+                        ? 'text-slate-300 group-hover:text-white'
+                        : 'text-slate-700 group-hover:text-slate-900'
+                    }`}>
                       {salonName}
                     </span>
                   </button>
@@ -420,7 +466,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     className={`flex-1 py-1.5 px-2.5 rounded-lg text-[11px] font-bold text-center transition-all cursor-pointer font-['Poppins'] whitespace-nowrap ${
                       isActive
                         ? 'bg-[#20C933] text-white drop-shadow-xs shadow-sm font-extrabold'
-                        : 'bg-slate-900 text-slate-300 hover:bg-slate-850 hover:text-white border border-slate-800/80 hover:border-slate-700'
+                        : isDark
+                        ? 'bg-slate-900 text-slate-300 hover:bg-slate-850 hover:text-white border border-slate-800/80 hover:border-slate-700'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 border border-slate-200 shadow-xs'
                     }`}
                   >
                     <span className="leading-none select-none">
@@ -477,14 +525,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       {/* Active Salon Filter Ribbon */}
           {selectedSalonFilter && (
             <div className="px-4 pt-3 flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-2 bg-emerald-950/60 border border-emerald-500/40 px-3 py-1.5 rounded-xl text-xs text-emerald-200 font-medium">
+              <div className={`flex items-center gap-2 border px-3 py-1.5 rounded-xl text-xs font-medium ${
+                isDark ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              }`}>
                 <span>
-                  Filtrando vagas de: <strong className="text-white font-bold">{selectedSalonFilter}</strong>
+                  Filtrando vagas de: <strong className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{selectedSalonFilter}</strong>
                 </span>
               </div>
               <button
                 onClick={() => setSelectedSalonFilter(null)}
-                className="flex items-center gap-1 text-xs text-slate-400 hover:text-white bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-800 transition cursor-pointer"
+                className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-xl border transition cursor-pointer ${
+                  isDark ? 'text-slate-400 hover:text-white bg-slate-900 border-slate-800' : 'text-slate-600 hover:text-slate-900 bg-white border-slate-200 shadow-xs'
+                }`}
               >
                 <X className="w-3.5 h-3.5" />
                 <span>Ver todos</span>
@@ -533,10 +585,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                       <div
                         key={offer.id}
                         onClick={() => handleSelectOffer(offer)}
-                        className="group relative flex flex-col rounded-2xl overflow-hidden bg-slate-900 border border-slate-800/80 shadow-md hover:border-slate-700 transition cursor-pointer"
+                        className={`group relative flex flex-col rounded-2xl overflow-hidden border transition cursor-pointer ${
+                          isDark
+                            ? 'bg-slate-900 border-slate-800/80 shadow-md hover:border-slate-700'
+                            : 'bg-white border-slate-200 shadow-xs hover:border-emerald-500/40 shadow-slate-200/50'
+                        }`}
                       >
                         {/* Imagem do Pin com Aspecto Orgânico */}
-                        <div className={`relative w-full ${aspectClass} overflow-hidden bg-slate-950`}>
+                        <div className={`relative w-full ${aspectClass} overflow-hidden ${isDark ? 'bg-slate-950' : 'bg-slate-100'}`}>
                           <img
                             src={offer.imageUrl}
                             alt={offer.serviceTitle}
@@ -583,12 +639,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
                         {/* Rodapé do Pin: Título e Salão */}
                         <div className="p-2.5 flex flex-col gap-1">
-                          <h4 className="text-xs font-bold text-white line-clamp-1 leading-snug">
+                          <h4 className={`text-xs font-bold line-clamp-1 leading-snug ${isDark ? 'text-white' : 'text-slate-900'}`}>
                             {offer.serviceTitle}
                           </h4>
 
                           <div className="flex items-center justify-between gap-1 mt-0.5">
-                            <span className="text-[10px] text-slate-400 truncate max-w-[105px]">
+                            <span className={`text-[10px] truncate max-w-[105px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                               {offer.salonName}
                             </span>
 
@@ -611,14 +667,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   })}
                 </div>
               ) : (
-                <div className="py-16 text-center px-6 bg-slate-900/60 rounded-2xl border border-slate-800">
-                  <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-slate-400 mb-3">
+                <div className={`py-16 text-center px-6 rounded-2xl border ${
+                  isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+                }`}>
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 ${
+                    isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600'
+                  }`}>
                     <Compass className="w-8 h-8 text-[#20C933] animate-spin" />
                   </div>
-                  <h3 className="text-base font-bold text-white font-['Poppins']">
+                  <h3 className={`text-base font-bold font-['Poppins'] ${isDark ? 'text-white' : 'text-slate-900'}`}>
                     Nenhuma inspiração encontrada
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+                  <p className={`text-xs mt-1 max-w-xs mx-auto ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     Tente selecionar outra categoria para ver vagas e referências visuais abertas.
                   </p>
                   <button
@@ -651,14 +711,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   />
                 ))
               ) : (
-                <div className="py-16 text-center px-6 bg-slate-900/60 rounded-2xl border border-slate-800">
-                  <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-slate-400 mb-3">
+                <div className={`py-16 text-center px-6 rounded-2xl border ${
+                  isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+                }`}>
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 ${
+                    isDark ? 'bg-slate-800 text-slate-400' : 'bg-slate-100 text-slate-600'
+                  }`}>
                     <Compass className="w-8 h-8 text-[#20C933] animate-spin" />
                   </div>
-                  <h3 className="text-base font-bold text-white font-['Poppins']">
+                  <h3 className={`text-base font-bold font-['Poppins'] ${isDark ? 'text-white' : 'text-slate-900'}`}>
                     Nenhuma vaga encontrada
                   </h3>
-                  <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+                  <p className={`text-xs mt-1 max-w-xs mx-auto ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                     {selectedSalonFilter
                       ? `Não encontramos vagas adicionais para ${selectedSalonFilter} nesta categoria.`
                       : 'Tente selecionar outra categoria ou mudar para o perfil geral para ver todos os horários abertos.'}

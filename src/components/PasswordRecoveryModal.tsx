@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Mail, MessageCircle, ArrowRight, CheckCircle2, ShieldCheck, Loader2 } from 'lucide-react';
 import { requestPasswordResetInSupabase } from '../services/supabaseApi';
 import { hapticLight, hapticSuccess } from '../utils/haptics';
+import { useTheme } from '../context/ThemeContext';
 
 interface PasswordRecoveryModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
   salonName = 'Salão / Estabelecimento',
   defaultEmail = '',
 }) => {
+  const { isDark } = useTheme();
   const [email, setEmail] = useState(defaultEmail);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -51,16 +53,22 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm animate-fade-in overflow-hidden">
-      <div className="w-full max-w-sm rounded-[4px] bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden flex flex-col my-auto">
-        {/* Header Compacto (px-3.5 py-2.5) */}
-        <div className="px-3.5 py-2.5 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+      <div className={`w-full max-w-sm rounded-2xl border shadow-2xl overflow-hidden flex flex-col my-auto ${
+        isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+      }`}>
+        {/* Header Compacto */}
+        <div className={`px-4 py-3 border-b flex items-center justify-between ${
+          isDark ? 'border-slate-800 bg-slate-950/60' : 'border-slate-100 bg-slate-50'
+        }`}>
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-[4px] bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+            <div className={`w-8 h-8 rounded-lg border flex items-center justify-center ${
+              isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            }`}>
               <ShieldCheck className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-xs font-bold text-white font-['Poppins']">Recuperação de Senha</h3>
-              <p className="text-[9.5px] text-slate-400 truncate max-w-[200px]">{salonName}</p>
+              <h3 className={`text-xs font-bold font-['Poppins'] ${isDark ? 'text-white' : 'text-slate-900'}`}>Recuperação de Senha</h3>
+              <p className={`text-[9.5px] truncate max-w-[200px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>{salonName}</p>
             </div>
           </div>
           <button
@@ -68,40 +76,48 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
               hapticLight();
               onClose();
             }}
-            className="p-1 rounded-[4px] text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            className={`p-1.5 rounded-lg transition cursor-pointer ${
+              isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+            }`}
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content Body */}
-        <div className="p-3.5 space-y-3">
+        <div className="p-4 space-y-3">
           {isSuccess ? (
-            <div className="p-3 rounded-[4px] bg-emerald-950/40 border border-emerald-500/30 space-y-2 text-center animate-fade-in">
-              <div className="w-9 h-9 rounded-[4px] bg-[#00a033] text-white flex items-center justify-center mx-auto shadow-md">
-                <CheckCircle2 className="w-5 h-5 text-white stroke-[2.5]" />
+            <div className={`p-3.5 rounded-xl border space-y-2 text-center animate-fade-in ${
+              isDark ? 'bg-emerald-950/40 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200'
+            }`}>
+              <div className="w-10 h-10 rounded-xl bg-[#20C933] text-white flex items-center justify-center mx-auto shadow-md">
+                <CheckCircle2 className="w-6 h-6 text-white stroke-[2.5]" />
               </div>
-              <h4 className="text-xs font-bold text-white">Instruções Enviadas!</h4>
-              <p className="text-[10px] text-slate-300 leading-relaxed">
-                Enviamos um e-mail de redefinição para <strong className="text-emerald-400">{email}</strong>.
+              <h4 className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Instruções Enviadas!</h4>
+              <p className={`text-[10px] leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                Enviamos um e-mail de redefinição para <strong className="text-emerald-500">{email}</strong>.
                 Verifique sua caixa de entrada e spam.
               </p>
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full mt-2 py-2 rounded-[4px] bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition cursor-pointer"
+                className={`w-full mt-2 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
+                }`}
               >
                 Entendi, Voltar ao Login
               </button>
             </div>
           ) : (
-            <form onSubmit={handleResetSubmit} className="space-y-2.5">
-              <p className="text-[10.5px] text-slate-300 leading-snug">
+            <form onSubmit={handleResetSubmit} className="space-y-3">
+              <p className={`text-[10.5px] leading-snug ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                 Informe o e-mail cadastrado do estabelecimento para receber as instruções de redefinição via Supabase Auth:
               </p>
 
               <div>
-                <label className="block text-[10px] font-semibold text-slate-300 mb-1">
+                <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${
+                  isDark ? 'text-slate-400' : 'text-slate-500'
+                }`}>
                   E-mail do Gestor
                 </label>
                 <div className="relative">
@@ -112,13 +128,17 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="gestor@salao.com.br"
-                    className="w-full pl-8 pr-2.5 py-1.5 rounded-[4px] bg-slate-950 border border-slate-800 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 transition"
+                    className={`w-full pl-8 pr-2.5 py-2 rounded-xl border text-xs focus:outline-none focus:border-[#20C933] transition ${
+                      isDark
+                        ? 'bg-slate-950 border-slate-800 text-white placeholder:text-slate-500'
+                        : 'bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 shadow-2xs'
+                    }`}
                   />
                 </div>
               </div>
 
               {errorMessage && (
-                <div className="p-2 rounded-[4px] bg-rose-950/50 border border-rose-500/40 text-[10px] text-rose-300">
+                <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-[10px] text-rose-400">
                   {errorMessage}
                 </div>
               )}
@@ -127,7 +147,7 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
               <button
                 type="submit"
                 disabled={isLoading || !email.trim()}
-                className="w-full py-2.5 rounded-[4px] bg-[#00a033] hover:bg-[#008f2d] disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/60"
+                className="w-full py-2.5 rounded-xl bg-[#20C933] hover:bg-[#1bb82d] disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-emerald-900/20"
               >
                 {isLoading ? (
                   <>
@@ -143,9 +163,9 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
               </button>
 
               <div className="relative flex py-1 items-center">
-                <div className="flex-grow border-t border-slate-800"></div>
-                <span className="flex-shrink mx-2 text-[9px] text-slate-500 uppercase font-bold">ou suporte direto</span>
-                <div className="flex-grow border-t border-slate-800"></div>
+                <div className={`flex-grow border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}></div>
+                <span className={`flex-shrink mx-2 text-[9px] uppercase font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>ou suporte direto</span>
+                <div className={`flex-grow border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}></div>
               </div>
 
               {/* Atendimento Direto via WhatsApp */}
@@ -154,11 +174,15 @@ export const PasswordRecoveryModal: React.FC<PasswordRecoveryModalProps> = ({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => hapticLight()}
-                className="w-full py-2 px-3 rounded-[4px] bg-emerald-950/50 hover:bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 hover:text-white text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer"
+                className={`w-full py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                  isDark
+                    ? 'bg-emerald-950/50 hover:bg-emerald-900/60 border-emerald-500/40 text-emerald-300 hover:text-white'
+                    : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
+                }`}
               >
-                <MessageCircle className="w-4 h-4 text-emerald-400" />
+                <MessageCircle className="w-4 h-4 text-[#20C933]" />
                 <span>Atendimento Direto via WhatsApp</span>
-                <ArrowRight className="w-3.5 h-3.5 text-emerald-400" />
+                <ArrowRight className="w-3.5 h-3.5 text-[#20C933]" />
               </a>
             </form>
           )}

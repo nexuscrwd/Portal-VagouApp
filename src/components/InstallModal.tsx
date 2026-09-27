@@ -12,6 +12,7 @@ import {
   Sparkles,
   ExternalLink,
 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 export type DetectedBrowser = 'opera' | 'safari' | 'chrome' | 'samsung' | 'firefox' | 'other';
 
@@ -28,6 +29,7 @@ export const InstallModal: React.FC<InstallModalProps> = ({
   onNativeInstall,
   hasNativePrompt = false,
 }) => {
+  const { isDark } = useTheme();
   const [detectedBrowser, setDetectedBrowser] = useState<DetectedBrowser>('other');
   const [activeTab, setActiveTab] = useState<DetectedBrowser>('opera');
 
@@ -59,21 +61,27 @@ export const InstallModal: React.FC<InstallModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-white rounded-t sm:rounded p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div className={`w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border ${
+        isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+      }`}>
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className={`flex items-center justify-between border-b pb-3 ${
+          isDark ? 'border-slate-800' : 'border-slate-100'
+        }`}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded bg-gradient-to-tr from-[#20C933] to-[#087A2A] flex items-center justify-center text-white font-black text-lg shadow-md">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#20C933] to-[#087A2A] flex items-center justify-center text-white font-black text-lg shadow-md">
               V
             </div>
             <div>
-              <h3 className="text-base font-black text-slate-900 leading-tight">Instalar Aplicativo Vagou</h3>
-              <p className="text-[11px] text-slate-500 font-medium">Instalação direta para qualquer navegador</p>
+              <h3 className={`text-base font-black leading-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Instalar Aplicativo Vagou</h3>
+              <p className={`text-[11px] font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Instalação direta para qualquer navegador</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 rounded hover:bg-slate-100 transition"
+            className={`p-2 rounded-lg transition ${
+              isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+            }`}
           >
             <X className="w-5 h-5" />
           </button>
@@ -81,16 +89,20 @@ export const InstallModal: React.FC<InstallModalProps> = ({
 
         {/* Native 1-Click Install Button if supported */}
         {hasNativePrompt && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded p-3.5 space-y-2">
-            <div className="flex items-center gap-2 text-emerald-800 text-xs font-bold">
-              <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className={`border rounded-xl p-3.5 space-y-2 ${
+            isDark ? 'bg-emerald-950/40 border-emerald-500/30' : 'bg-emerald-50 border-emerald-200'
+          }`}>
+            <div className={`flex items-center gap-2 text-xs font-bold ${
+              isDark ? 'text-emerald-300' : 'text-emerald-800'
+            }`}>
+              <Sparkles className="w-4 h-4 text-[#20C933] shrink-0" />
               <span>Instalação instantânea detectada!</span>
             </div>
             <button
               onClick={() => {
                 if (onNativeInstall) onNativeInstall();
               }}
-              className="w-full py-2.5 bg-[#20C933] hover:bg-[#087A2A] text-white font-bold text-xs rounded shadow transition flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-[#20C933] hover:bg-[#1bb82d] text-white font-bold text-xs rounded-xl shadow transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>Instalar em 1 Clique</span>
@@ -100,16 +112,20 @@ export const InstallModal: React.FC<InstallModalProps> = ({
 
         {/* Browser Selector Tabs */}
         <div>
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
+          <span className={`text-[11px] font-bold uppercase tracking-wider block mb-2 ${
+            isDark ? 'text-slate-400' : 'text-slate-500'
+          }`}>
             Escolha seu Navegador:
           </span>
-          <div className="grid grid-cols-5 gap-1.5 p-1 bg-slate-100 rounded text-[11px] font-bold">
+          <div className={`grid grid-cols-5 gap-1.5 p-1 rounded-xl text-[11px] font-bold border ${
+            isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-100 border-slate-200'
+          }`}>
             <button
               onClick={() => setActiveTab('opera')}
-              className={`py-2 px-1 rounded transition flex flex-col items-center gap-1 ${
+              className={`py-2 px-1 rounded-lg transition flex flex-col items-center gap-1 cursor-pointer ${
                 activeTab === 'opera'
-                  ? 'bg-white text-rose-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? isDark ? 'bg-slate-800 text-rose-400 shadow-sm' : 'bg-white text-rose-600 shadow-xs'
+                  : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <span className="text-xs">🔴</span>
@@ -118,10 +134,10 @@ export const InstallModal: React.FC<InstallModalProps> = ({
 
             <button
               onClick={() => setActiveTab('chrome')}
-              className={`py-2 px-1 rounded transition flex flex-col items-center gap-1 ${
+              className={`py-2 px-1 rounded-lg transition flex flex-col items-center gap-1 cursor-pointer ${
                 activeTab === 'chrome'
-                  ? 'bg-white text-emerald-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? isDark ? 'bg-slate-800 text-emerald-400 shadow-sm' : 'bg-white text-emerald-600 shadow-xs'
+                  : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <span className="text-xs">🟢</span>
@@ -130,10 +146,10 @@ export const InstallModal: React.FC<InstallModalProps> = ({
 
             <button
               onClick={() => setActiveTab('safari')}
-              className={`py-2 px-1 rounded transition flex flex-col items-center gap-1 ${
+              className={`py-2 px-1 rounded-lg transition flex flex-col items-center gap-1 cursor-pointer ${
                 activeTab === 'safari'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? isDark ? 'bg-slate-800 text-blue-400 shadow-sm' : 'bg-white text-blue-600 shadow-xs'
+                  : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <span className="text-xs">🔵</span>
@@ -142,10 +158,10 @@ export const InstallModal: React.FC<InstallModalProps> = ({
 
             <button
               onClick={() => setActiveTab('samsung')}
-              className={`py-2 px-1 rounded transition flex flex-col items-center gap-1 ${
+              className={`py-2 px-1 rounded-lg transition flex flex-col items-center gap-1 cursor-pointer ${
                 activeTab === 'samsung'
-                  ? 'bg-white text-purple-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? isDark ? 'bg-slate-800 text-purple-400 shadow-sm' : 'bg-white text-purple-600 shadow-xs'
+                  : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <span className="text-xs">🟣</span>
@@ -154,10 +170,10 @@ export const InstallModal: React.FC<InstallModalProps> = ({
 
             <button
               onClick={() => setActiveTab('firefox')}
-              className={`py-2 px-1 rounded transition flex flex-col items-center gap-1 ${
+              className={`py-2 px-1 rounded-lg transition flex flex-col items-center gap-1 cursor-pointer ${
                 activeTab === 'firefox'
-                  ? 'bg-white text-orange-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? isDark ? 'bg-slate-800 text-orange-400 shadow-sm' : 'bg-white text-orange-600 shadow-xs'
+                  : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <span className="text-xs">🟠</span>
@@ -167,14 +183,16 @@ export const InstallModal: React.FC<InstallModalProps> = ({
         </div>
 
         {/* Step-by-Step Instructions Per Browser */}
-        <div className="bg-slate-50 border border-slate-200/90 rounded p-4 text-xs space-y-3">
+        <div className={`border rounded-xl p-4 text-xs space-y-3 ${
+          isDark ? 'bg-slate-950/60 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200/90 text-slate-700'
+        }`}>
           {activeTab === 'opera' && (
-            <div className="space-y-2.5 text-slate-700">
-              <div className="flex items-center gap-2 text-slate-900 font-bold">
-                <span className="w-5 h-5 rounded bg-rose-100 text-slate-950 flex items-center justify-center text-[10px] font-black border border-rose-200">O</span>
+            <div className="space-y-2.5">
+              <div className={`flex items-center gap-2 font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                <span className="w-5 h-5 rounded bg-rose-500/20 text-rose-400 flex items-center justify-center text-[10px] font-black border border-rose-500/30">O</span>
                 <span>Como instalar no Opera / Opera GX:</span>
               </div>
-              <ol className="space-y-2.5 list-decimal list-inside text-slate-600 leading-relaxed font-medium">
+              <ol className={`space-y-2.5 list-decimal list-inside leading-relaxed font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                 <li className="pl-1">
                   Toque no <strong>ícone do Opera (O)</strong> ou nos <strong>três pontinhos ⋮</strong> no canto da barra de navegação.
                 </li>
@@ -189,12 +207,12 @@ export const InstallModal: React.FC<InstallModalProps> = ({
           )}
 
           {activeTab === 'chrome' && (
-            <div className="space-y-2.5 text-slate-700">
-              <div className="flex items-center gap-2 text-slate-900 font-bold">
-                <MoreVertical className="w-4 h-4 text-emerald-600" />
+            <div className="space-y-2.5">
+              <div className={`flex items-center gap-2 font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                <MoreVertical className="w-4 h-4 text-[#20C933]" />
                 <span>Como instalar no Google Chrome / Edge:</span>
               </div>
-              <ol className="space-y-2.5 list-decimal list-inside text-slate-600 leading-relaxed font-medium">
+              <ol className={`space-y-2.5 list-decimal list-inside leading-relaxed font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                 <li className="pl-1">
                   Toque nos <strong>três pontinhos ⋮</strong> no canto superior direito do Chrome.
                 </li>
@@ -209,17 +227,17 @@ export const InstallModal: React.FC<InstallModalProps> = ({
           )}
 
           {activeTab === 'safari' && (
-            <div className="space-y-2.5 text-slate-700">
-              <div className="flex items-center gap-2 text-slate-900 font-bold">
-                <Share2 className="w-4 h-4 text-blue-600" />
+            <div className="space-y-2.5">
+              <div className={`flex items-center gap-2 font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                <Share2 className="w-4 h-4 text-blue-400" />
                 <span>Como instalar no Safari (iPhone / iPad):</span>
               </div>
-              <ol className="space-y-2.5 list-decimal list-inside text-slate-600 leading-relaxed font-medium">
+              <ol className={`space-y-2.5 list-decimal list-inside leading-relaxed font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                 <li className="pl-1">
-                  Toque no botão <strong>Compartilhar <Share2 className="w-3.5 h-3.5 inline text-blue-600 mx-0.5" /></strong> na barra inferior do Safari.
+                  Toque no botão <strong>Compartilhar <Share2 className="w-3.5 h-3.5 inline text-blue-400 mx-0.5" /></strong> na barra inferior do Safari.
                 </li>
                 <li className="pl-1">
-                  Role a lista e toque em <strong>"Adicionar à Tela de Início" <PlusSquare className="w-3.5 h-3.5 inline text-slate-800 mx-0.5" /></strong>.
+                  Role a lista e toque em <strong>"Adicionar à Tela de Início" <PlusSquare className="w-3.5 h-3.5 inline mx-0.5" /></strong>.
                 </li>
                 <li className="pl-1">
                   Toque em <strong>"Adicionar"</strong> no canto superior direito.
@@ -229,12 +247,12 @@ export const InstallModal: React.FC<InstallModalProps> = ({
           )}
 
           {activeTab === 'samsung' && (
-            <div className="space-y-2.5 text-slate-700">
-              <div className="flex items-center gap-2 text-slate-900 font-bold">
-                <Menu className="w-4 h-4 text-purple-600" />
+            <div className="space-y-2.5">
+              <div className={`flex items-center gap-2 font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                <Menu className="w-4 h-4 text-purple-400" />
                 <span>Como instalar no Samsung Internet:</span>
               </div>
-              <ol className="space-y-2.5 list-decimal list-inside text-slate-600 leading-relaxed font-medium">
+              <ol className={`space-y-2.5 list-decimal list-inside leading-relaxed font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                 <li className="pl-1">
                   Toque no ícone de <strong>Download ⬇️</strong> na barra de endereço ou no menu de <strong>três linhas ≡</strong> no canto inferior.
                 </li>
@@ -249,12 +267,12 @@ export const InstallModal: React.FC<InstallModalProps> = ({
           )}
 
           {activeTab === 'firefox' && (
-            <div className="space-y-2.5 text-slate-700">
-              <div className="flex items-center gap-2 text-slate-900 font-bold">
-                <MoreVertical className="w-4 h-4 text-orange-600" />
+            <div className="space-y-2.5">
+              <div className={`flex items-center gap-2 font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                <MoreVertical className="w-4 h-4 text-orange-400" />
                 <span>Como instalar no Mozilla Firefox:</span>
               </div>
-              <ol className="space-y-2.5 list-decimal list-inside text-slate-600 leading-relaxed font-medium">
+              <ol className={`space-y-2.5 list-decimal list-inside leading-relaxed font-medium ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
                 <li className="pl-1">
                   Toque nos <strong>três pontinhos ⋮</strong> ao lado da barra de endereço.
                 </li>
@@ -267,20 +285,26 @@ export const InstallModal: React.FC<InstallModalProps> = ({
         </div>
 
         {/* Benefits list */}
-        <div className="grid grid-cols-2 gap-2 text-[11px] font-semibold text-slate-600 pt-1">
-          <div className="flex items-center gap-1.5 bg-slate-50 p-2 rounded border border-slate-100">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+        <div className={`grid grid-cols-2 gap-2 text-[11px] font-semibold pt-1 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+          <div className={`flex items-center gap-1.5 p-2 rounded-xl border ${
+            isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-100'
+          }`}>
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#20C933] shrink-0" />
             <span>Tela cheia sem barras</span>
           </div>
-          <div className="flex items-center gap-1.5 bg-slate-50 p-2 rounded border border-slate-100">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <div className={`flex items-center gap-1.5 p-2 rounded-xl border ${
+            isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-100'
+          }`}>
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#20C933] shrink-0" />
             <span>Carregamento instantâneo</span>
           </div>
         </div>
 
         <button
           onClick={onClose}
-          className="w-full py-3 bg-[#151A1E] hover:bg-slate-800 text-white font-bold text-xs rounded shadow transition"
+          className={`w-full py-3 font-bold text-xs rounded-xl transition cursor-pointer border ${
+            isDark ? 'bg-slate-800 hover:bg-slate-700 text-white border-slate-700' : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
+          }`}
         >
           Fechar
         </button>

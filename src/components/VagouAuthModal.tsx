@@ -5,6 +5,7 @@ import { signInWithSupabaseEmail, signUpWithSupabase } from '../services/supabas
 import { PasswordRecoveryModal } from './PasswordRecoveryModal';
 import { supabase } from '../services/supabase';
 import { hapticLight } from '../utils/haptics';
+import { useTheme } from '../context/ThemeContext';
 
 interface VagouAuthModalProps {
   isOpen: boolean;
@@ -19,6 +20,7 @@ export const VagouAuthModal: React.FC<VagouAuthModalProps> = ({
   onSuccess,
   targetOfferTitle,
 }) => {
+  const { isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -107,17 +109,21 @@ export const VagouAuthModal: React.FC<VagouAuthModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 overflow-hidden">
         <div
-          className="w-full max-w-sm rounded-[4px] bg-slate-950 border border-slate-800/90 text-slate-100 shadow-2xl overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200"
+          className={`w-full max-w-sm rounded-2xl border shadow-2xl overflow-hidden flex flex-col my-auto animate-in zoom-in-95 duration-200 ${
+            isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
+          }`}
           role="dialog"
           aria-modal="true"
         >
-          {/* Header Superior Compacto (px-3.5 py-2.5) */}
-          <div className="px-3.5 py-2.5 flex items-center justify-between border-b border-slate-800/60 bg-slate-900">
+          {/* Header Superior Compacto */}
+          <div className={`px-4 py-3 flex items-center justify-between border-b ${
+            isDark ? 'border-slate-800 bg-slate-950/60' : 'border-slate-100 bg-slate-50'
+          }`}>
             <div className="flex items-center gap-2">
-              <VagouLogo className="h-5 w-auto" />
-              <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-[4px] bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 font-mono">
+              <VagouLogo className="h-5 w-auto" theme={isDark ? 'dark' : 'light'} />
+              <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-mono">
                 Portal
               </span>
             </div>
@@ -126,7 +132,9 @@ export const VagouAuthModal: React.FC<VagouAuthModalProps> = ({
                 hapticLight();
                 onClose();
               }}
-              className="p-1 rounded-[4px] bg-slate-900 border border-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer"
+              className={`p-1.5 rounded-lg border transition cursor-pointer ${
+                isDark ? 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-white' : 'bg-white border-slate-200 text-slate-500 hover:text-slate-900 shadow-2xs'
+              }`}
               title="Fechar"
               aria-label="Fechar modal"
             >
@@ -134,14 +142,14 @@ export const VagouAuthModal: React.FC<VagouAuthModalProps> = ({
             </button>
           </div>
 
-          {/* Conteúdo com Rolagem Interna Enxuta (space-y-2.5) */}
-          <div className="p-3.5 overflow-y-auto space-y-2.5 no-scrollbar max-h-[85vh]">
+          {/* Conteúdo com Rolagem Interna Enxuta */}
+          <div className="p-4 overflow-y-auto space-y-3 no-scrollbar max-h-[85vh]">
             {/* Chamada Principal */}
             <div>
-              <h2 className="text-sm font-bold text-white leading-tight font-['Poppins']">
+              <h2 className={`text-sm font-bold leading-tight font-['Poppins'] ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 Entre ou crie sua conta Vagou
               </h2>
-              <p className="text-[10px] text-slate-400 mt-0.5">
+              <p className={`text-[10px] mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                 {targetOfferTitle
                   ? `Para garantir sua vaga imediata em "${targetOfferTitle}".`
                   : 'Garanta sua vaga imediata e gerencie seus agendamentos.'}
@@ -149,15 +157,19 @@ export const VagouAuthModal: React.FC<VagouAuthModalProps> = ({
             </div>
 
             {/* Destaque Explicativo do Ecossistema */}
-            <div className="p-2.5 rounded-[4px] bg-emerald-950/40 border border-emerald-500/25 flex items-start gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-[#00a033] shrink-0 mt-0.5" />
-              <p className="text-[10px] text-emerald-200/90 leading-relaxed">
-                <strong className="text-white font-bold">Já agendou no app de algum parceiro?</strong> Seu login e senha são os mesmos!
+            <div className={`p-2.5 rounded-xl border flex items-start gap-2 ${
+              isDark ? 'bg-emerald-950/40 border-emerald-500/25' : 'bg-emerald-50 border-emerald-200'
+            }`}>
+              <Sparkles className="w-3.5 h-3.5 text-[#20C933] shrink-0 mt-0.5" />
+              <p className={`text-[10px] leading-relaxed ${isDark ? 'text-emerald-200/90' : 'text-emerald-800'}`}>
+                <strong className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Já agendou no app de algum parceiro?</strong> Seu login e senha são os mesmos!
               </p>
             </div>
 
-            {/* Seletor de Abas com rounded-[4px] */}
-            <div className="grid grid-cols-2 p-0.5 rounded-[4px] bg-slate-900 border border-slate-800 text-xs font-semibold">
+            {/* Seletor de Abas */}
+            <div className={`grid grid-cols-2 p-1 rounded-xl border text-xs font-semibold ${
+              isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-100 border-slate-200'
+            }`}>
               <button
                 type="button"
                 onClick={() => {
@@ -165,10 +177,10 @@ export const VagouAuthModal: React.FC<VagouAuthModalProps> = ({
                   setActiveTab('login');
                   setErrorMessage(null);
                 }}
-                className={`py-1.5 rounded-[4px] transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                className={`py-1.5 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
                   activeTab === 'login'
-                    ? 'bg-slate-800 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? isDark ? 'bg-slate-800 text-white shadow-xs' : 'bg-white text-slate-900 shadow-xs'
+                    : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
                 <LogIn className="w-3.5 h-3.5" />
@@ -181,10 +193,10 @@ export const VagouAuthModal: React.FC<VagouAuthModalProps> = ({
                   setActiveTab('register');
                   setErrorMessage(null);
                 }}
-                className={`py-1.5 rounded-[4px] transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                className={`py-1.5 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
                   activeTab === 'register'
-                    ? 'bg-slate-800 text-white shadow-xs'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? isDark ? 'bg-slate-800 text-white shadow-xs' : 'bg-white text-slate-900 shadow-xs'
+                    : isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
                 <UserPlus className="w-3.5 h-3.5" />
@@ -194,7 +206,7 @@ export const VagouAuthModal: React.FC<VagouAuthModalProps> = ({
 
             {/* Feedback de Erro */}
             {errorMessage && (
-              <div className="p-2 rounded-[4px] bg-rose-950/60 border border-rose-500/30 text-rose-200 text-[10px] flex items-center gap-1.5">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
                 <span>{errorMessage}</span>
               </div>
@@ -204,39 +216,47 @@ export const VagouAuthModal: React.FC<VagouAuthModalProps> = ({
             {activeTab === 'login' && (
               <form onSubmit={handleLoginSubmit} className="space-y-2.5">
                 <div>
-                  <label className="block text-[10px] font-medium text-slate-300 mb-1">
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${
+                    isDark ? 'text-slate-400' : 'text-slate-500'
+                  }`}>
                     E-mail, Usuário ou WhatsApp
                   </label>
                   <div className="relative">
-                    <Mail className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       value={loginIdentifier}
                       onChange={(e) => setLoginIdentifier(e.target.value)}
-                      placeholder="E-mail, username (ex: Elisapires@) ou WhatsApp"
+                      placeholder="E-mail, username ou WhatsApp"
                       required
-                      className="w-full pl-8 pr-2.5 py-1.5 rounded-[4px] bg-slate-900 border border-slate-800 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-emerald-500 transition"
+                      className={`w-full pl-8 pr-2.5 py-2 rounded-xl border text-xs focus:outline-none focus:border-[#20C933] transition ${
+                        isDark ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 shadow-2xs'
+                      }`}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-medium text-slate-300 mb-1">
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${
+                    isDark ? 'text-slate-400' : 'text-slate-500'
+                  }`}>
                     Senha
                   </label>
                   <div className="relative">
-                    <Lock className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="password"
                       value={loginPassword}
                       onChange={(e) => setLoginPassword(e.target.value)}
                       placeholder="••••••••"
                       required
-                      className="w-full pl-8 pr-2.5 py-1.5 rounded-[4px] bg-slate-900 border border-slate-800 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-emerald-500 transition font-mono"
+                      className={`w-full pl-8 pr-2.5 py-2 rounded-xl border text-xs focus:outline-none focus:border-[#20C933] transition font-mono ${
+                        isDark ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 shadow-2xs'
+                      }`}
                     />
                   </div>
 
-                  {/* Link "Esqueceu a senha?" posicionado logo abaixo do campo de senha */}
+                  {/* Link "Esqueceu a senha?" */}
                   <div className="mt-1 flex justify-end">
                     <button
                       type="button"
@@ -252,11 +272,11 @@ export const VagouAuthModal: React.FC<VagouAuthModalProps> = ({
                   </div>
                 </div>
 
-                {/* Botão Principal Verde #00a033 com Texto Estritamente Branco */}
+                {/* Botão Principal Verde #20C933 com Texto Estritamente Branco */}
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full mt-1 py-2.5 px-3 rounded-[4px] bg-[#00a033] hover:bg-[#008f2d] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md shadow-emerald-950/60 transition cursor-pointer active:scale-98 disabled:opacity-60"
+                  className="w-full mt-2 py-3 px-3 rounded-xl bg-[#20C933] hover:bg-[#1bb82d] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md shadow-emerald-900/20 transition cursor-pointer active:scale-98 disabled:opacity-60"
                 >
                   {isLoading ? (
                     <span className="text-white">Acessando...</span>
@@ -274,61 +294,75 @@ export const VagouAuthModal: React.FC<VagouAuthModalProps> = ({
             {activeTab === 'register' && (
               <form onSubmit={handleRegisterSubmit} className="space-y-2.5">
                 <div>
-                  <label className="block text-[10px] font-medium text-slate-300 mb-1">
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${
+                    isDark ? 'text-slate-400' : 'text-slate-500'
+                  }`}>
                     Nome Completo
                   </label>
                   <div className="relative">
-                    <User className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <User className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="text"
                       value={registerName}
                       onChange={(e) => setRegisterName(e.target.value)}
                       placeholder="Seu nome"
                       required
-                      className="w-full pl-8 pr-2.5 py-1.5 rounded-[4px] bg-slate-900 border border-slate-800 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-emerald-500 transition"
+                      className={`w-full pl-8 pr-2.5 py-2 rounded-xl border text-xs focus:outline-none focus:border-[#20C933] transition ${
+                        isDark ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 shadow-2xs'
+                      }`}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-medium text-slate-300 mb-1">
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${
+                    isDark ? 'text-slate-400' : 'text-slate-500'
+                  }`}>
                     WhatsApp (com DDD)
                   </label>
                   <div className="relative">
-                    <Phone className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="tel"
                       value={registerPhone}
                       onChange={(e) => setRegisterPhone(e.target.value)}
                       placeholder="(11) 98765-4321"
-                      className="w-full pl-8 pr-2.5 py-1.5 rounded-[4px] bg-slate-900 border border-slate-800 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-emerald-500 transition"
+                      className={`w-full pl-8 pr-2.5 py-2 rounded-xl border text-xs focus:outline-none focus:border-[#20C933] transition font-mono ${
+                        isDark ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 shadow-2xs'
+                      }`}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-medium text-slate-300 mb-1">
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${
+                    isDark ? 'text-slate-400' : 'text-slate-500'
+                  }`}>
                     E-mail
                   </label>
                   <div className="relative">
-                    <Mail className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="email"
                       value={registerEmail}
                       onChange={(e) => setRegisterEmail(e.target.value)}
                       placeholder="seu@email.com"
                       required
-                      className="w-full pl-8 pr-2.5 py-1.5 rounded-[4px] bg-slate-900 border border-slate-800 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-emerald-500 transition"
+                      className={`w-full pl-8 pr-2.5 py-2 rounded-xl border text-xs focus:outline-none focus:border-[#20C933] transition ${
+                        isDark ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 shadow-2xs'
+                      }`}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-medium text-slate-300 mb-1">
+                  <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${
+                    isDark ? 'text-slate-400' : 'text-slate-500'
+                  }`}>
                     Criar Senha (mín. 6 caracteres)
                   </label>
                   <div className="relative">
-                    <Lock className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                     <input
                       type="password"
                       value={registerPassword}
@@ -336,16 +370,18 @@ export const VagouAuthModal: React.FC<VagouAuthModalProps> = ({
                       placeholder="Crie sua senha segura"
                       minLength={6}
                       required
-                      className="w-full pl-8 pr-2.5 py-1.5 rounded-[4px] bg-slate-900 border border-slate-800 text-white placeholder-slate-500 text-xs focus:outline-none focus:border-emerald-500 transition"
+                      className={`w-full pl-8 pr-2.5 py-2 rounded-xl border text-xs focus:outline-none focus:border-[#20C933] transition font-mono ${
+                        isDark ? 'bg-slate-950 border-slate-800 text-white placeholder-slate-500' : 'bg-white border-slate-300 text-slate-900 placeholder-slate-400 shadow-2xs'
+                      }`}
                     />
                   </div>
                 </div>
 
-                {/* Botão Principal Verde #00a033 com Texto Estritamente Branco */}
+                {/* Botão Principal Verde #20C933 com Texto Estritamente Branco */}
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full mt-1 py-2.5 px-3 rounded-[4px] bg-[#00a033] hover:bg-[#008f2d] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md shadow-emerald-950/60 transition cursor-pointer active:scale-98 disabled:opacity-60"
+                  className="w-full mt-2 py-3 px-3 rounded-xl bg-[#20C933] hover:bg-[#1bb82d] text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md shadow-emerald-900/20 transition cursor-pointer active:scale-98 disabled:opacity-60"
                 >
                   {isLoading ? (
                     <span className="text-white">Criando conta...</span>

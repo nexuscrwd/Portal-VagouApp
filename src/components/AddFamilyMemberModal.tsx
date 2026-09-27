@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Check, Baby, Sparkles, User, Heart, Calendar, FileText, Phone, Mail, ShieldCheck } from 'lucide-react';
 import { FamilyMemberProfile, FamilyAutonomyLevel } from '../types';
 import { hapticLight, hapticSuccess } from '../utils/haptics';
+import { useTheme } from '../context/ThemeContext';
 
 interface AddFamilyMemberModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({
   onAddMember,
   initialMember,
 }) => {
+  const { isDark } = useTheme();
   const [name, setName] = useState(initialMember?.name || '');
   const [relationship, setRelationship] = useState<FamilyMemberProfile['relationship']>(
     initialMember?.relationship || 'filho_kids'
@@ -78,18 +80,24 @@ export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="w-full max-w-sm rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden flex flex-col my-auto">
+      <div className={`w-full max-w-sm rounded-2xl border shadow-2xl overflow-hidden flex flex-col my-auto ${
+        isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+      }`}>
         {/* Header */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+        <div className={`p-4 border-b flex items-center justify-between ${
+          isDark ? 'border-slate-800 bg-slate-950/40' : 'border-slate-100 bg-slate-50'
+        }`}>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+            <div className={`w-8 h-8 rounded-lg border flex items-center justify-center ${
+              isDark ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            }`}>
               <Baby className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white font-['Poppins']">
+              <h3 className={`text-sm font-bold font-['Poppins'] ${isDark ? 'text-white' : 'text-slate-900'}`}>
                 {initialMember ? 'Editar Perfil Familiar' : 'Vagou Family • Dependente'}
               </h3>
-              <p className="text-[10px] text-slate-400">Filhos, dependentes ou cônjuge</p>
+              <p className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Filhos, dependentes ou cônjuge</p>
             </div>
           </div>
           <button
@@ -97,7 +105,9 @@ export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({
               hapticLight();
               onClose();
             }}
-            className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            className={`p-1 rounded-full transition cursor-pointer ${
+              isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-100'
+            }`}
           >
             <X className="w-4 h-4" />
           </button>
@@ -106,7 +116,9 @@ export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-4 space-y-3.5 max-h-[80vh] overflow-y-auto no-scrollbar">
           <div>
-            <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+            <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1 ${
+              isDark ? 'text-slate-400' : 'text-slate-600'
+            }`}>
               Nome de quem vai ser atendido
             </label>
             <input
@@ -116,12 +128,18 @@ export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Enzo Silva, Theo, Mariana..."
-              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 transition"
+              className={`w-full px-3 py-2 rounded-xl border text-xs focus:outline-none focus:border-[#20C933] transition ${
+                isDark
+                  ? 'bg-slate-950 border-slate-800 text-white placeholder:text-slate-500'
+                  : 'bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 shadow-2xs'
+              }`}
             />
           </div>
 
           <div>
-            <label className="block text-[11px] font-semibold text-slate-300 mb-1.5">
+            <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1.5 ${
+              isDark ? 'text-slate-400' : 'text-slate-600'
+            }`}>
               Parentesco / Tipo de Perfil
             </label>
             <div className="grid grid-cols-2 gap-1.5">
@@ -148,127 +166,71 @@ export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({
                     }}
                     className={`p-2 rounded-xl text-left border transition cursor-pointer flex flex-col gap-0.5 ${
                       isSelected
-                        ? 'bg-emerald-950/40 border-emerald-500 text-white shadow-xs'
-                        : 'bg-slate-950/60 border-slate-800/80 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                        ? isDark
+                          ? 'bg-emerald-950/50 border-[#20C933] text-white shadow-xs'
+                          : 'bg-emerald-50 border-[#20C933] text-slate-900 shadow-xs'
+                        : isDark
+                        ? 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-white'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <IconComponent className={`w-3.5 h-3.5 ${isSelected ? 'text-emerald-400' : 'text-slate-400'}`} />
-                      {isSelected && <Check className="w-3 h-3 text-emerald-400" />}
+                    <div className="flex items-center gap-1.5">
+                      <IconComponent className={`w-3.5 h-3.5 ${isSelected ? 'text-[#20C933]' : isDark ? 'text-slate-400' : 'text-slate-500'}`} />
+                      <span className="text-xs font-bold">{opt.label}</span>
                     </div>
-                    <span className="text-[11px] font-bold leading-tight">{opt.label}</span>
-                    <span className="text-[8.5px] text-slate-400 leading-tight">{opt.desc}</span>
+                    <span className={`text-[9px] ${isSelected ? (isDark ? 'text-emerald-300' : 'text-emerald-700') : 'text-slate-400'}`}>
+                      {opt.desc}
+                    </span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Data de Nascimento & Observações de Corte */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <div>
-              <label className="block text-[10px] font-semibold text-slate-400 mb-1 flex items-center gap-1">
-                <Calendar className="w-3 h-3 text-emerald-400" />
-                <span>Nascimento</span>
-              </label>
-              <input
-                type="date"
-                value={birthDate}
-                onChange={(e) => setBirthDate(e.target.value)}
-                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500 transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[10px] font-semibold text-slate-400 mb-1 flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                <span>Autonomia</span>
-              </label>
-              <select
-                value={autonomyLevel}
-                onChange={(e) => setAutonomyLevel(e.target.value as FamilyAutonomyLevel)}
-                className="w-full px-2 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500 transition"
-              >
-                <option value="parent_controlled">Total (Pais controlam)</option>
-                <option value="teen_assisted">Assistida (Jovem/Teen)</option>
-                <option value="emancipated">Emancipado (Conta própria)</option>
-              </select>
-            </div>
-          </div>
-
           <div>
-            <label className="block text-[10px] font-semibold text-slate-400 mb-1 flex items-center gap-1">
-              <FileText className="w-3 h-3 text-emerald-400" />
-              <span>Observações para o Profissional / Salão</span>
+            <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1 ${
+              isDark ? 'text-slate-400' : 'text-slate-600'
+            }`}>
+              Data de Nascimento (Opcional)
             </label>
             <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ex: Corte tesoura, sensível a máquina, desenho lateral..."
-              className="w-full px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 transition"
+              type="date"
+              value={birthDate}
+              onChange={(e) => setBirthDate(e.target.value)}
+              className={`w-full px-3 py-2 rounded-xl border text-xs focus:outline-none focus:border-[#20C933] transition ${
+                isDark
+                  ? 'bg-slate-950 border-slate-800 text-white'
+                  : 'bg-white border-slate-300 text-slate-900 shadow-2xs'
+              }`}
             />
           </div>
 
-          {/* Se for Jovem / Emancipado: Campos de portabilidade digital */}
-          {(autonomyLevel === 'teen_assisted' || autonomyLevel === 'emancipated' || relationship === 'filho_teen') && (
-            <div className="p-2.5 rounded-xl bg-slate-950/90 border border-emerald-500/30 space-y-2">
-              <div className="flex items-center gap-1 text-emerald-400 text-[10px] font-bold">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Protocolo de Emancipação & Contato do Jovem</span>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                <div>
-                  <label className="block text-[9px] text-slate-400 mb-0.5 flex items-center gap-1">
-                    <Phone className="w-2.5 h-2.5" /> WhatsApp Jovem
-                  </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="(11) 9...."
-                    className="w-full px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-white text-[11px] focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[9px] text-slate-400 mb-0.5 flex items-center gap-1">
-                    <Mail className="w-2.5 h-2.5" /> E-mail Jovem
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="jovem@email.com"
-                    className="w-full px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-white text-[11px] focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Dica de Integração com o Salão */}
-          <div className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 text-[10px] text-slate-400 leading-relaxed">
-            💡 <strong className="text-slate-300">Meu Negócio:</strong> O salão recebe na comanda o nome do dependente e o contato do responsável.
+          <div>
+            <label className={`block text-[11px] font-bold uppercase tracking-wider mb-1 ${
+              isDark ? 'text-slate-400' : 'text-slate-600'
+            }`}>
+              Observações & Preferências de Atendimento
+            </label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ex: Corte tesoura nas laterais, não usar máquina..."
+              className={`w-full px-3 py-2 rounded-xl border text-xs focus:outline-none focus:border-[#20C933] transition resize-none ${
+                isDark
+                  ? 'bg-slate-950 border-slate-800 text-white placeholder:text-slate-500'
+                  : 'bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 shadow-2xs'
+              }`}
+            />
           </div>
 
-          {/* Rodapé Fixo de Ação */}
-          <div className="pt-2 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2 rounded-xl border border-slate-800 text-slate-300 hover:bg-slate-800 text-xs font-bold transition cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={!name.trim()}
-              className="flex-1 py-2 rounded-xl bg-[#00a033] hover:bg-[#008f2d] disabled:opacity-50 text-white text-xs font-bold tracking-wide uppercase shadow-lg shadow-emerald-950/50 transition cursor-pointer flex items-center justify-center gap-1.5"
-            >
-              <Check className="w-3.5 h-3.5 text-white" />
-              <span>{initialMember ? 'Salvar Perfil' : 'Criar Perfil'}</span>
-            </button>
-          </div>
+          <button
+            type="submit"
+            className="w-full py-3 bg-[#20C933] hover:bg-[#1bb82d] active:scale-[0.99] text-white font-bold text-xs uppercase tracking-wider rounded-xl transition shadow-lg shadow-emerald-900/20 flex items-center justify-center gap-1.5 cursor-pointer"
+          >
+            <Check className="w-4 h-4 text-white stroke-[2.5]" />
+            <span>{initialMember ? 'Salvar Alterações' : 'Salvar Perfil Familiar'}</span>
+          </button>
         </form>
       </div>
     </div>

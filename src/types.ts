@@ -158,9 +158,77 @@ export interface ScreenAnalysis {
 
 export interface SalonBranding {
   logoUrl?: string;
-  primaryColor: string;
+  logoLightUrl?: string;
+  logoDarkUrl?: string;
+  primaryColor?: string;
   secondaryColor?: string;
   backgroundColor?: string;
   accentColor?: string;
+  theme?: 'dark' | 'light' | 'custom';
+}
+
+export interface SalonDbData {
+  id: string;
+  slug?: string;
+  trade_name: string;
+  legal_name?: string;
+  document_number?: string;
+  phone_whatsapp?: string;
+  email?: string;
+  address?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  cep?: string;
+  lat?: number;
+  lng?: number;
+  status?: 'active' | 'pending' | 'incomplete' | 'suspended';
+  is_verified?: boolean;
+  primary_color?: string;
+  branding?: SalonBranding | Record<string, any>;
+  logo_url?: string;
+  logo_light_url?: string;
+  logo_dark_url?: string;
+  cover_url?: string;
+  operating_model?: 'solo' | 'team' | 'home_delivery' | 'hybrid';
+  home_delivery_enabled?: boolean;
+  home_delivery_area?: string;
+  home_delivery_travel_fee?: number;
+  rating_avg?: number;
+  rating_count?: number;
+  opening_hours?: Record<string, string> | string;
+  description?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ServiceDbData {
+  id: string;
+  salon_id?: string;
+  title: string;
+  name?: string;
+  description?: string;
+  category?: string;
+  price: number;
+  duration_minutes?: number;
+  image_url?: string;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ProfessionalDbData {
+  id: string;
+  salon_id?: string;
+  name: string;
+  role?: string;
+  avatar_url?: string;
+  email?: string;
+  phone?: string;
+  specialties?: string[];
+  is_active?: boolean;
+  rating_avg?: number;
+  rating_count?: number;
+  created_at?: string;
 }
 

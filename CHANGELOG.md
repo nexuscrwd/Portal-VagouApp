@@ -15,6 +15,67 @@ Este arquivo registra cronologicamente todas as modificações relevantes realiz
 
 ## 📜 Registros de Alterações
 
+### [2026-09-27] — Alinhamento Arquitetural: SSO Global da Tríade & Resolução em Cascata de Avatar
+- **Tipo:** `[SSO / Auth / Profile Sync / Triad Alignment]`
+- **Motivo / Solicitação:** Resposta técnica oficial ao comunicado do `mnvapp` e `admvapp` sobre a unificação global da identidade (1 Usuário = 1 Cadastro = Acesso Universal), espelhamento em `auth.users.user_metadata` e resolução em cascata da foto de perfil (`avatar_url`).
+- **Arquivos Impactados:**
+  - `src/services/supabaseApi.ts`: `fetchUserProfileFromDb` atualizado com leitura do `auth.users.user_metadata`, busca hierárquica `professionals` e `clients`, fallback em cascata (`prof.avatar_url || client.avatar_url || authMetadata.avatar_url || sessionAvatar`) e gravação da chave de sessão `vagou_user_avatar`; `updateUserProfileInDb` atualizado com atualização atômica de `clients.avatar_url` e espelhamento em `supabase.auth.updateUser({ data: { avatar_url, full_name, phone } })`.
+  - `src/App.tsx`: Sincronização e expurgo das chaves `vagou_user_avatar` no login e logout da aplicação.
+- **Validação:** `lint_applet` (`tsc --noEmit`) e `compile_applet` (`npm run build`) executados com **0 erros**.
+
+### [2026-09-27] — Revisão Profunda e Universal do Tema Claro e Escuro em 100% dos Modais e Telas
+- **Tipo:** `[Refactor / UI-UX / Theme Integration / Full Coverage]`
+- **Motivo / Solicitação:** Revisão detalhada e abrangente da integração de Tema Claro (Light Mode) e Tema Escuro (Dark Mode) em todos os componentes, formulários e modais da aplicação que ainda possuíam estilizações hardcoded.
+- **Arquivos e Componentes Impactados:**
+  - `src/components/ProfileScreen.tsx`: Integração com `useTheme`, suporte a superfícies claras/escuras, modal "Meus Dados", formulários e caixas de notificação.
+  - `src/components/VagouAuthModal.tsx`: Adaptação do diálogo, inputs, abas "Entrar" e "Criar Conta" e cabeçalho para ambos os temas.
+  - `src/components/PasswordRecoveryModal.tsx`: Diálogo, inputs e links de WhatsApp adaptados dinamicamente para tema claro e escuro.
+  - `src/components/CancelModal.tsx`: Diálogo de confirmação de cancelamento e resumo de agendamento adaptados para ambos os temas.
+  - `src/components/SearchModal.tsx`: Barra de pesquisa central flutuante, chips de busca rápida e lista de resultados integrados ao `useTheme`.
+  - `src/components/InterestOnboardingModal.tsx`: Modal de personalização estilo Netflix com cards selecionáveis adaptados a dark e light mode.
+  - `src/components/AddFamilyMemberModal.tsx`: Modal de cadastro e edição de dependente (Vagou Family) com suporte a tema claro e escuro.
+  - `src/components/InstallModal.tsx`: Modal universal de instalação PWA e guias de navegadores com suporte a tema claro e escuro.
+  - `src/components/InstallBanner.tsx`: Banner de instalação PWA adaptado para tema claro e escuro.
+  - `src/components/SkeletonLoader.tsx`: Placeholders animados de carregamento adaptados dinamicamente para dark e light.
+  - `src/components/RadarOfferCard.tsx`: Superfície e bordas do card externo adaptadas para dark e light.
+  - `src/components/ProfileDrawer.tsx`: Caixas de Vagou Family, Modo Visitante e dependentes refinadas com `isDark`.
+- **Validação:** `lint_applet` (`tsc --noEmit`) e `compile_applet` (`npm run build`) executados com **0 erros**.
+
+
+### [2026-09-27] — Suporte Bidirecional Completo a Tema Claro (Light Mode) & Design System
+- **Tipo:** `[Feat / Design System / Light Mode / Theme Infrastructure]`
+- **Motivo / Solicitação:**
+  1. Implementação rigorosa do suporte bidirecional completo a Tema Claro (Light Mode) e Tema Escuro (Dark Mode) em 100% dos componentes, layouts, cabeçalhos, cards e telas da aplicação.
+  2. Atualização da infraestrutura do `ThemeContext` com suporte a `accentColor`, `applyAccentColorToDom`, persistência sincronizada em `vagou_user_theme_preference` e injeção dinâmica de CSS.
+  3. Aplicação inegociável da Regra de Contraste do Fundo Verde (`bg-[#20C933]` / `bg-emerald-500` = `text-white`), ícones 100% `lucide-react` e eliminação de bordas aninhadas.
+- **Arquivos Impactados:**
+  - `src/context/ThemeContext.tsx`: Infraestrutura completa de tema com persistência local, alternância de classes `dark`/`light` e injeção dinâmica de variáveis CSS.
+  - `src/components/FavoritesScreen.tsx`: Adaptação completa dos cards de favoritos e cabeçalho para ambos os temas.
+  - `src/components/OfferListScreen.tsx`: Adaptação dos cards da listagem, filtros e barra de busca para tema claro e escuro.
+  - `src/components/MapScreen.tsx`: Adaptação da barra de busca do mapa, sheet inferior de oferta e canvas vetorial estilizado.
+  - `src/components/ProfileDrawer.tsx`: Alternador de tema integrado com feedback háptico e sincronização instantânea.
+- **Validação:** `lint_applet` (`tsc --noEmit`) e `compile_applet` (`npm run build`) 100% aprovados sem qualquer erro.
+
+### [2026-09-27] — Implementação do CRUD Completo e Sincronização em Nuvem de Salões, Serviços e Profissionais
+- **Tipo:** `[Feat / Cloud Sync / CRUD Supabase / Triad Alignment]`
+- **Motivo / Solicitação:**
+  1. Aplicação das correções de CRUD e persistência real no Supabase para as tabelas `salons`, `services` e `professionals` conforme diagnóstico da Tríade.
+  2. Suporte unificado para colunas `title` e `name` nos serviços, eliminando discrepâncias de nomenclatura.
+  3. Hidratação completa e em tempo real de `primary_color`, `branding`, `logo_light_url` e `logo_dark_url` na visualização de estabelecimentos (`SalonProfileView`).
+- **Arquivos Impactados:**
+  - `src/types.ts`: Adicionadas interfaces completas `SalonDbData`, `ServiceDbData`, `ProfessionalDbData` e `SalonBranding`.
+  - `src/services/supabaseApi.ts`: Implementadas funções `fetchSalonDetailsFromDb`, `updateSalonDetailsInDb`, `fetchSalonServicesFromDb`, `upsertSalonServiceInDb`, `deleteSalonServiceFromDb`, `fetchSalonProfessionalsFromDb`, `upsertSalonProfessionalInDb`, `deleteSalonProfessionalFromDb` e `fetchCompleteSalonData`.
+  - `src/components/SalonProfileView.tsx`: Hidratação direta do banco de dados na montagem, renderização dinâmica de cores e logos claro/escuro e catálogo de serviços sincronizado com a nuvem.
+- **Validação:** `lint_applet` (`tsc --noEmit`) e `compile_applet` (`npm run build`) 100% aprovados.
+
+### [2026-09-27] — Exibição Condicional do Botão de Perfil (Avatar / Ícone Logado vs "Entrar" Deslogado)
+- **Tipo:** `[UI / UX / Header Refinement]`
+- **Motivo / Solicitação:** O botão com ícone/avatar de perfil no topo da tela inicial deve aparecer exclusivamente quando o usuário estiver logado. Quando não estiver logado, exibe diretamente o botão textual "Entrar" para abrir o fluxo de login/cadastro.
+- **Arquivos Impactados:**
+  - `src/components/HomeScreen.tsx`: Renderização condicional no cabeçalho: botão com avatar/ícone `User` quando `isLoggedIn === true` e botão direto "Entrar" quando `isLoggedIn === false`.
+  - `src/App.tsx`: Prop `onOpenAuthModal` conectada ao modal de autenticação.
+- **Validação:** `lint_applet` e `compile_applet` testados e aprovados.
+
 ### [2026-09-27] — Sincronização de Perfil de Usuário com Supabase & Padronização Global do Ícone User para Avatares
 - **Tipo:** `[Feat / UI Standardization / Supabase Sync / Anti-Slop / Triad Alignment]`
 - **Motivo / Solicitação:**

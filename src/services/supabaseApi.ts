@@ -4,6 +4,9 @@ import {
   BookingAppointment,
   FamilyMemberProfile,
   SalonProfessional,
+  SalonDbData,
+  ServiceDbData,
+  ProfessionalDbData,
 } from '../types';
 import { triggerBrowserNotification } from '../utils/pushNotifications';
 
@@ -1139,6 +1142,7 @@ export async function checkSupabaseHealth(): Promise<SupabaseHealthStatus> {
 
 export interface UserProfileData {
   id?: string;
+  userId?: string;
   fullName: string;
   email: string;
   phone: string;
@@ -1149,9 +1153,9 @@ export interface UserProfileData {
 
 /**
  * Consulta e sincroniza dados do perfil do usuário com o Supabase.
- * Procura nas tabelas clients, professionals e salons.
+ * Procura nas tabelas clients, professionals e salons, com fallback nos metadados do auth.users.
  * Homologado com suporte a Elisa Pires (email: elisa.pires@gmail.com, phone: 11987654321).
- * Sincroniza automaticamente as chaves de sessão: vagou_user_name, vagou_user_email, vagou_user_phone.
+ * Sincroniza automaticamente as chaves de sessão: vagou_user_name, vagou_user_email, vagou_user_phone, vagou_user_avatar.
  */
 export async function fetchUserProfileFromDb(
   identifier?: { userId?: string; email?: string; phone?: string; name?: string }
@@ -1160,11 +1164,24 @@ export async function fetchUserProfileFromDb(
     const sessionName = sessionStorage.getItem('vagou_user_name') || localStorage.getItem('vagou_user_name');
     const sessionEmail = sessionStorage.getItem('vagou_user_email') || localStorage.getItem('vagou_user_email');
     const sessionPhone = sessionStorage.getItem('vagou_user_phone') || localStorage.getItem('vagou_user_phone');
+    const sessionAvatar = sessionStorage.getItem('vagou_user_avatar') || localStorage.getItem('vagou_user_avatar');
 
     const searchEmail = identifier?.email || sessionEmail || '';
     const searchPhone = identifier?.phone || sessionPhone || '';
     const searchName = identifier?.name || sessionName || '';
-    const searchUserId = identifier?.userId;
+    let searchUserId = identifier?.userId;
+
+    // Se não veio userId, checa se há sessão ativa no Auth
+    let authMetadata: Record<string, any> = {};
+    if (!searchUserId) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session?.user) {
+          searchUserId = sessionData.session.user.id;
+          authMetadata = sessionData.session.user.user_metadata || {};
+        }
+      } catch {}
+    }
 
     const lowerName = searchName.toLowerCase();
     const lowerEmail = searchEmail.toLowerCase();
@@ -1202,48 +1219,7 @@ export async function fetchUserProfileFromDb(
       return elisaProfile;
     }
 
-    // 2. Consulta tabela clients
-    let clientQuery = supabase.from('clients').select('*');
-    if (searchUserId) {
-      clientQuery = clientQuery.or(`user_id.eq.${searchUserId},id.eq.${searchUserId}`);
-    } else if (searchEmail && searchEmail.includes('@')) {
-      clientQuery = clientQuery.ilike('email', searchEmail.trim());
-    } else if (cleanPhoneDigits.length >= 8) {
-      clientQuery = clientQuery.ilike('phone', `%${cleanPhoneDigits}%`);
-    } else if (searchName && searchName !== 'Visitante' && searchName !== 'Cliente Vagou') {
-      clientQuery = clientQuery.ilike('name', `%${searchName.trim()}%`);
-    }
-
-    const { data: clientsData } = await clientQuery.limit(1);
-
-    if (clientsData && clientsData.length > 0) {
-      const c = clientsData[0];
-      const resolved: UserProfileData = {
-        id: c.id,
-        fullName: c.name || searchName || 'Cliente Vagou',
-        email: c.email || searchEmail || '',
-        phone: c.phone || searchPhone || '',
-        address: c.default_address || 'São Paulo, SP',
-        avatarUrl: c.avatar_url,
-      };
-
-      sessionStorage.setItem('vagou_user_name', resolved.fullName);
-      sessionStorage.setItem('vagou_user_email', resolved.email);
-      sessionStorage.setItem('vagou_user_phone', resolved.phone);
-      localStorage.setItem('vagou_user_name', resolved.fullName);
-      localStorage.setItem('vagou_user_email', resolved.email);
-      localStorage.setItem('vagou_user_phone', resolved.phone);
-      localStorage.setItem('vagou_private_user_profile', JSON.stringify({
-        fullName: resolved.fullName,
-        email: resolved.email,
-        phone: resolved.phone,
-        address: resolved.address,
-      }));
-
-      return resolved;
-    }
-
-    // 3. Consulta tabela professionals
+    // 2. Consulta tabela professionals (prioridade alta para usuários que prestam serviços)
     let profQuery = supabase.from('professionals').select('*');
     if (searchUserId) {
       profQuery = profQuery.or(`user_id.eq.${searchUserId},id.eq.${searchUserId}`);
@@ -1256,42 +1232,70 @@ export async function fetchUserProfileFromDb(
     }
 
     const { data: profsData } = await profQuery.limit(1);
+    const prof = profsData && profsData.length > 0 ? profsData[0] : null;
 
-    if (profsData && profsData.length > 0) {
-      const p = profsData[0];
+    // 3. Consulta tabela clients
+    let clientQuery = supabase.from('clients').select('*');
+    if (searchUserId) {
+      clientQuery = clientQuery.or(`user_id.eq.${searchUserId},id.eq.${searchUserId}`);
+    } else if (searchEmail && searchEmail.includes('@')) {
+      clientQuery = clientQuery.ilike('email', searchEmail.trim());
+    } else if (cleanPhoneDigits.length >= 8) {
+      clientQuery = clientQuery.ilike('phone', `%${cleanPhoneDigits}%`);
+    } else if (searchName && searchName !== 'Visitante' && searchName !== 'Cliente Vagou') {
+      clientQuery = clientQuery.ilike('name', `%${searchName.trim()}%`);
+    }
+
+    const { data: clientsData } = await clientQuery.limit(1);
+    const client = clientsData && clientsData.length > 0 ? clientsData[0] : null;
+
+    if (client || prof) {
+      // Cascading fallback conforme especificação oficial da Tríade:
+      // professionalData?.avatar_url || clientData?.avatar_url || authMetadata?.avatar_url || sessionAvatar || ''
+      const resolvedAvatar = prof?.avatar_url || client?.avatar_url || authMetadata?.avatar_url || sessionAvatar || '';
+      const resolvedName = prof?.name || client?.name || authMetadata?.full_name || searchName || 'Cliente Vagou';
+      const resolvedEmail = prof?.email || client?.email || authMetadata?.email || searchEmail || '';
+      const resolvedPhone = prof?.phone || client?.phone || authMetadata?.phone || searchPhone || '';
+      const resolvedAddress = client?.default_address || 'São Paulo, SP';
+
       const resolved: UserProfileData = {
-        id: p.id,
-        fullName: p.name || searchName || 'Profissional',
-        email: p.email || searchEmail || '',
-        phone: p.phone || searchPhone || '',
-        address: 'São Paulo, SP',
-        role: p.role,
-        avatarUrl: p.avatar_url,
+        id: client?.id || prof?.id,
+        userId: searchUserId || client?.user_id || prof?.user_id,
+        fullName: resolvedName,
+        email: resolvedEmail,
+        phone: resolvedPhone,
+        address: resolvedAddress,
+        role: prof?.role || 'client',
+        avatarUrl: resolvedAvatar || undefined,
       };
 
       sessionStorage.setItem('vagou_user_name', resolved.fullName);
       sessionStorage.setItem('vagou_user_email', resolved.email);
       sessionStorage.setItem('vagou_user_phone', resolved.phone);
+      if (resolved.avatarUrl) sessionStorage.setItem('vagou_user_avatar', resolved.avatarUrl);
       localStorage.setItem('vagou_user_name', resolved.fullName);
       localStorage.setItem('vagou_user_email', resolved.email);
       localStorage.setItem('vagou_user_phone', resolved.phone);
+      if (resolved.avatarUrl) localStorage.setItem('vagou_user_avatar', resolved.avatarUrl);
       localStorage.setItem('vagou_private_user_profile', JSON.stringify({
         fullName: resolved.fullName,
         email: resolved.email,
         phone: resolved.phone,
         address: resolved.address,
+        avatarUrl: resolved.avatarUrl,
       }));
 
       return resolved;
     }
 
-    // Se já existem dados no storage, retorna o que tem
-    if (searchName || searchEmail || searchPhone) {
+    // Se já existem dados no storage ou auth, retorna o que tem com fallback
+    if (searchName || searchEmail || searchPhone || authMetadata?.full_name) {
       return {
-        fullName: searchName || 'Cliente Vagou',
-        email: searchEmail || '',
-        phone: searchPhone || '',
+        fullName: authMetadata?.full_name || searchName || 'Cliente Vagou',
+        email: authMetadata?.email || searchEmail || '',
+        phone: authMetadata?.phone || searchPhone || '',
         address: 'São Paulo, SP',
+        avatarUrl: authMetadata?.avatar_url || sessionAvatar || undefined,
       };
     }
 
@@ -1303,8 +1307,8 @@ export async function fetchUserProfileFromDb(
 }
 
 /**
- * Atualiza dados cadastrais do perfil diretamente no Supabase (tabela clients).
- * Sincroniza simultaneamente storage e tabelas vinculadas.
+ * Atualiza dados cadastrais do perfil diretamente no Supabase (tabela clients e auth.users metadata).
+ * Sincroniza simultaneamente storage e metadados globais da Tríade.
  */
 export async function updateUserProfileInDb(
   profile: UserProfileData
@@ -1314,20 +1318,40 @@ export async function updateUserProfileInDb(
     const cleanPhone = profile.phone?.trim() || '';
     const cleanName = profile.fullName?.trim() || 'Cliente Vagou';
     const cleanAddress = profile.address?.trim() || 'São Paulo, SP';
+    const cleanAvatar = profile.avatarUrl?.trim() || '';
 
     // Grava imediatamente no storage local e de sessão
     sessionStorage.setItem('vagou_user_name', cleanName);
     sessionStorage.setItem('vagou_user_email', cleanEmail);
     sessionStorage.setItem('vagou_user_phone', cleanPhone);
+    if (cleanAvatar) sessionStorage.setItem('vagou_user_avatar', cleanAvatar);
     localStorage.setItem('vagou_user_name', cleanName);
     localStorage.setItem('vagou_user_email', cleanEmail);
     localStorage.setItem('vagou_user_phone', cleanPhone);
+    if (cleanAvatar) localStorage.setItem('vagou_user_avatar', cleanAvatar);
     localStorage.setItem('vagou_private_user_profile', JSON.stringify({
       fullName: cleanName,
       email: cleanEmail,
       phone: cleanPhone,
       address: cleanAddress,
+      avatarUrl: cleanAvatar || undefined,
     }));
+
+    // Sincroniza metadados globais no auth.users caso haja sessão ativa
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData?.session?.user) {
+        await supabase.auth.updateUser({
+          data: {
+            full_name: cleanName,
+            phone: cleanPhone,
+            avatar_url: cleanAvatar || undefined,
+          },
+        });
+      }
+    } catch (authSyncErr) {
+      console.warn('[Supabase Auth Sync] Aviso ao espelhar user_metadata:', authSyncErr);
+    }
 
     // Tenta atualizar no Supabase na tabela clients
     if (cleanEmail || cleanPhone) {
@@ -1345,6 +1369,7 @@ export async function updateUserProfileInDb(
             email: cleanEmail || null,
             phone: cleanPhone || null,
             default_address: cleanAddress,
+            avatar_url: cleanAvatar || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', existingClients[0].id);
@@ -1356,6 +1381,7 @@ export async function updateUserProfileInDb(
             email: cleanEmail || null,
             phone: cleanPhone || null,
             default_address: cleanAddress,
+            avatar_url: cleanAvatar || null,
           });
       }
     }
@@ -1368,6 +1394,7 @@ export async function updateUserProfileInDb(
         email: cleanEmail,
         phone: cleanPhone,
         address: cleanAddress,
+        avatarUrl: cleanAvatar || undefined,
       },
     };
   } catch (err: any) {
@@ -1375,6 +1402,356 @@ export async function updateUserProfileInDb(
     return { success: true, data: profile };
   }
 }
+
+/* =========================================================================
+   Sincronização em Nuvem: CRUD de Salons, Services e Professionals
+   ========================================================================= */
+
+/**
+ * Consulta dados completos de um salão pelo ID, slug ou nome fantasia.
+ * Recupera colunas de branding: primary_color, branding, logo_light_url, logo_dark_url, etc.
+ */
+export async function fetchSalonDetailsFromDb(salonIdOrSlugOrName: string): Promise<SalonDbData | null> {
+  if (!salonIdOrSlugOrName) return null;
+  const target = salonIdOrSlugOrName.trim();
+
+  try {
+    let query = supabase.from('salons').select('*');
+
+    // Se for UUID válido
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(target);
+    if (isUuid) {
+      query = query.eq('id', target);
+    } else {
+      query = query.or(`slug.eq.${target},trade_name.ilike.%${target}%`);
+    }
+
+    const { data, error } = await query.limit(1);
+    if (error || !data || data.length === 0) {
+      return null;
+    }
+
+    const s = data[0];
+    return {
+      id: s.id,
+      slug: s.slug,
+      trade_name: s.trade_name || s.name || target,
+      legal_name: s.legal_name,
+      document_number: s.document_number,
+      phone_whatsapp: s.phone_whatsapp || s.phone,
+      email: s.email,
+      address: s.address,
+      neighborhood: s.neighborhood,
+      city: s.city,
+      state: s.state,
+      cep: s.cep,
+      lat: s.lat,
+      lng: s.lng,
+      status: s.status || 'active',
+      is_verified: Boolean(s.is_verified),
+      primary_color: s.primary_color || (typeof s.branding === 'object' ? s.branding?.primaryColor : undefined),
+      branding: s.branding,
+      logo_url: s.logo_url,
+      logo_light_url: s.logo_light_url,
+      logo_dark_url: s.logo_dark_url,
+      cover_url: s.cover_url,
+      operating_model: s.operating_model,
+      home_delivery_enabled: s.home_delivery_enabled,
+      home_delivery_area: s.home_delivery_area,
+      home_delivery_travel_fee: s.home_delivery_travel_fee,
+      rating_avg: s.rating_avg ? Number(s.rating_avg) : 5.0,
+      rating_count: s.rating_count ? Number(s.rating_count) : 0,
+      opening_hours: s.opening_hours,
+      description: s.description,
+      created_at: s.created_at,
+      updated_at: s.updated_at,
+    };
+  } catch (err) {
+    console.warn('[Supabase Salons] Erro ao consultar salão:', err);
+    return null;
+  }
+}
+
+/**
+ * Atualiza dados e identidade visual do salão diretamente no Supabase.
+ */
+export async function updateSalonDetailsInDb(
+  salonId: string,
+  updates: Partial<SalonDbData>
+): Promise<{ success: boolean; data?: SalonDbData; error?: string }> {
+  try {
+    const payload: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (updates.trade_name !== undefined) payload.trade_name = updates.trade_name;
+    if (updates.legal_name !== undefined) payload.legal_name = updates.legal_name;
+    if (updates.document_number !== undefined) payload.document_number = updates.document_number;
+    if (updates.phone_whatsapp !== undefined) payload.phone_whatsapp = updates.phone_whatsapp;
+    if (updates.email !== undefined) payload.email = updates.email;
+    if (updates.address !== undefined) payload.address = updates.address;
+    if (updates.neighborhood !== undefined) payload.neighborhood = updates.neighborhood;
+    if (updates.city !== undefined) payload.city = updates.city;
+    if (updates.state !== undefined) payload.state = updates.state;
+    if (updates.cep !== undefined) payload.cep = updates.cep;
+    if (updates.primary_color !== undefined) payload.primary_color = updates.primary_color;
+    if (updates.branding !== undefined) payload.branding = updates.branding;
+    if (updates.logo_url !== undefined) payload.logo_url = updates.logo_url;
+    if (updates.logo_light_url !== undefined) payload.logo_light_url = updates.logo_light_url;
+    if (updates.logo_dark_url !== undefined) payload.logo_dark_url = updates.logo_dark_url;
+    if (updates.cover_url !== undefined) payload.cover_url = updates.cover_url;
+    if (updates.status !== undefined) payload.status = updates.status;
+    if (updates.is_verified !== undefined) payload.is_verified = updates.is_verified;
+    if (updates.description !== undefined) payload.description = updates.description;
+    if (updates.opening_hours !== undefined) payload.opening_hours = updates.opening_hours;
+
+    const { data, error } = await supabase
+      .from('salons')
+      .update(payload)
+      .eq('id', salonId)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('[Supabase Salons] Erro ao atualizar salão:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data: data as SalonDbData };
+  } catch (err: any) {
+    console.error('[Supabase Salons] Falha crítica:', err);
+    return { success: false, error: err?.message || 'Erro inesperado ao salvar no Supabase' };
+  }
+}
+
+/**
+ * Consulta os serviços de um salão com suporte unificado a `title` e `name`.
+ */
+export async function fetchSalonServicesFromDb(salonId: string): Promise<ServiceDbData[]> {
+  if (!salonId) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('services')
+      .select('*')
+      .eq('salon_id', salonId)
+      .order('created_at', { ascending: true });
+
+    if (error || !data) {
+      return [];
+    }
+
+    return data.map((s) => ({
+      id: s.id,
+      salon_id: s.salon_id,
+      title: s.title || s.name || 'Serviço',
+      name: s.name || s.title || 'Serviço',
+      description: s.description || '',
+      category: s.category || 'cabelo',
+      price: Number(s.price || 0),
+      duration_minutes: Number(s.duration_minutes || 30),
+      image_url: s.image_url,
+      is_active: s.is_active !== false,
+      created_at: s.created_at,
+      updated_at: s.updated_at,
+    }));
+  } catch (err) {
+    console.warn('[Supabase Services] Erro ao buscar serviços:', err);
+    return [];
+  }
+}
+
+/**
+ * Cria ou atualiza um serviço no banco de dados (upsert).
+ */
+export async function upsertSalonServiceInDb(
+  service: Partial<ServiceDbData> & { salon_id: string; title: string; price: number }
+): Promise<{ success: boolean; data?: ServiceDbData; error?: string }> {
+  try {
+    const payload: Record<string, any> = {
+      salon_id: service.salon_id,
+      title: service.title,
+      name: service.title,
+      price: service.price,
+      duration_minutes: service.duration_minutes || 30,
+      category: service.category || 'cabelo',
+      description: service.description || null,
+      image_url: service.image_url || null,
+      is_active: service.is_active !== false,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (service.id) {
+      payload.id = service.id;
+    }
+
+    const { data, error } = await supabase
+      .from('services')
+      .upsert(payload)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('[Supabase Services] Erro no upsert de serviço:', error);
+      return { success: false, error: error.message };
+    }
+
+    return {
+      success: true,
+      data: {
+        id: data.id,
+        salon_id: data.salon_id,
+        title: data.title || data.name,
+        name: data.name || data.title,
+        price: Number(data.price),
+        duration_minutes: Number(data.duration_minutes),
+        category: data.category,
+        description: data.description,
+        image_url: data.image_url,
+        is_active: data.is_active,
+      },
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message };
+  }
+}
+
+/**
+ * Exclui um serviço do banco de dados pelo ID.
+ */
+export async function deleteSalonServiceFromDb(serviceId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('services').delete().eq('id', serviceId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Consulta os profissionais de um salão no banco de dados.
+ */
+export async function fetchSalonProfessionalsFromDb(salonId: string): Promise<ProfessionalDbData[]> {
+  if (!salonId) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('professionals')
+      .select('*')
+      .eq('salon_id', salonId)
+      .order('created_at', { ascending: true });
+
+    if (error || !data) {
+      return [];
+    }
+
+    return data.map((p) => ({
+      id: p.id,
+      salon_id: p.salon_id,
+      name: p.name || 'Profissional',
+      role: p.role || 'Especialista',
+      avatar_url: p.avatar_url,
+      email: p.email,
+      phone: p.phone,
+      specialties: p.specialties,
+      is_active: p.is_active !== false,
+      rating_avg: p.rating_avg ? Number(p.rating_avg) : 5.0,
+      rating_count: p.rating_count ? Number(p.rating_count) : 0,
+      created_at: p.created_at,
+    }));
+  } catch (err) {
+    console.warn('[Supabase Professionals] Erro ao buscar profissionais:', err);
+    return [];
+  }
+}
+
+/**
+ * Cria ou atualiza um profissional no banco de dados (upsert).
+ */
+export async function upsertSalonProfessionalInDb(
+  prof: Partial<ProfessionalDbData> & { salon_id: string; name: string }
+): Promise<{ success: boolean; data?: ProfessionalDbData; error?: string }> {
+  try {
+    const payload: Record<string, any> = {
+      salon_id: prof.salon_id,
+      name: prof.name,
+      role: prof.role || 'Especialista',
+      avatar_url: prof.avatar_url || null,
+      email: prof.email || null,
+      phone: prof.phone || null,
+      is_active: prof.is_active !== false,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (prof.id) {
+      payload.id = prof.id;
+    }
+
+    const { data, error } = await supabase
+      .from('professionals')
+      .upsert(payload)
+      .select('*')
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return {
+      success: true,
+      data: {
+        id: data.id,
+        salon_id: data.salon_id,
+        name: data.name,
+        role: data.role,
+        avatar_url: data.avatar_url,
+        email: data.email,
+        phone: data.phone,
+        is_active: data.is_active,
+      },
+    };
+  } catch (err: any) {
+    return { success: false, error: err?.message };
+  }
+}
+
+/**
+ * Exclui um profissional do banco de dados pelo ID.
+ */
+export async function deleteSalonProfessionalFromDb(profId: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('professionals').delete().eq('id', profId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Hidratação Completa: Carrega salão, identidade visual, serviços e profissionais em paralelo.
+ */
+export async function fetchCompleteSalonData(salonIdOrSlug: string): Promise<{
+  salon: SalonDbData | null;
+  services: ServiceDbData[];
+  professionals: ProfessionalDbData[];
+}> {
+  const salon = await fetchSalonDetailsFromDb(salonIdOrSlug);
+  if (!salon || !salon.id) {
+    return { salon: null, services: [], professionals: [] };
+  }
+
+  const [services, professionals] = await Promise.all([
+    fetchSalonServicesFromDb(salon.id),
+    fetchSalonProfessionalsFromDb(salon.id),
+  ]);
+
+  return {
+    salon,
+    services,
+    professionals,
+  };
+}
+
 
 
 

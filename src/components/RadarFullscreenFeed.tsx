@@ -3,6 +3,7 @@ import { Heart, Volume2, VolumeX, Zap, ChevronRight, Compass } from 'lucide-reac
 import { ServiceOffer } from '../types';
 import { MediaFallbackCard } from './MediaFallbackCard';
 import { formatSlotDateTime } from '../utils/dateFormatter';
+import { useTheme } from '../context/ThemeContext';
 
 interface RadarFullscreenFeedProps {
   offers: ServiceOffer[];
@@ -21,6 +22,7 @@ export const RadarFullscreenFeed: React.FC<RadarFullscreenFeedProps> = ({
   onDirectBook,
   onOpenSalonProfile,
 }) => {
+  const { isDark } = useTheme();
   const [mutedStates, setMutedStates] = useState<Record<string, boolean>>({});
   const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
 
@@ -37,10 +39,20 @@ export const RadarFullscreenFeed: React.FC<RadarFullscreenFeedProps> = ({
 
   if (offers.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-6 text-center">
-        <Compass className="w-12 h-12 text-[#20C933] animate-spin mb-3" />
-        <h3 className="text-base font-bold text-white">Nenhuma vaga ativa no momento</h3>
-        <p className="text-xs text-slate-400 mt-1">Tente trocar a categoria no topo.</p>
+      <div className={`h-full w-full flex flex-col items-center justify-center p-6 text-center ${
+        isDark ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-900'
+      }`}>
+        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-3 ${
+          isDark ? 'bg-slate-900 border border-slate-800 text-[#20C933]' : 'bg-white border border-slate-200 text-[#20C933] shadow-xs'
+        }`}>
+          <Compass className="w-8 h-8 text-[#20C933] animate-spin" />
+        </div>
+        <h3 className={`text-base font-bold font-['Poppins'] ${isDark ? 'text-white' : 'text-slate-900'}`}>
+          Nenhuma vaga ativa no momento
+        </h3>
+        <p className={`text-xs mt-1 max-w-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+          Tente trocar a categoria no topo para encontrar outros serviços.
+        </p>
       </div>
     );
   }

@@ -82,9 +82,11 @@ export const App: React.FC = () => {
       localStorage.removeItem('vagou_user_name');
       localStorage.removeItem('vagou_user_email');
       localStorage.removeItem('vagou_user_phone');
+      localStorage.removeItem('vagou_user_avatar');
       sessionStorage.removeItem('vagou_user_name');
       sessionStorage.removeItem('vagou_user_email');
       sessionStorage.removeItem('vagou_user_phone');
+      sessionStorage.removeItem('vagou_user_avatar');
       await signOutClient();
     } catch (err) {
       console.warn('Erro ao sair:', err);
@@ -100,19 +102,23 @@ export const App: React.FC = () => {
       const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Cliente Vagou';
       const email = user.email || '';
       const phone = user.user_metadata?.phone || '';
+      const avatarUrl = user.user_metadata?.avatar_url || '';
 
       sessionStorage.setItem('vagou_user_name', fullName);
       sessionStorage.setItem('vagou_user_email', email);
       sessionStorage.setItem('vagou_user_phone', phone);
+      if (avatarUrl) sessionStorage.setItem('vagou_user_avatar', avatarUrl);
       localStorage.setItem('vagou_user_name', fullName);
       localStorage.setItem('vagou_user_email', email);
       localStorage.setItem('vagou_user_phone', phone);
+      if (avatarUrl) localStorage.setItem('vagou_user_avatar', avatarUrl);
 
       localStorage.setItem('vagou_private_user_profile', JSON.stringify({
         fullName,
         email,
         phone,
         address: 'São Paulo, SP',
+        avatarUrl: avatarUrl || undefined,
       }));
 
       // Sincroniza dados com o Supabase
@@ -634,6 +640,7 @@ export const App: React.FC = () => {
                   onNavigateToAgenda={() => setCurrentScreen('agenda')}
                   userName={currentUser?.user_metadata?.full_name || currentUser?.email || 'Visitante'}
                   isLoggedIn={Boolean(currentUser)}
+                  onOpenAuthModal={() => setIsAuthModalOpen(true)}
                   activeFamilyProfile={activeFamilyProfile}
                   onOpenAddFamilyModal={() => setIsAddFamilyModalOpen(true)}
                 />

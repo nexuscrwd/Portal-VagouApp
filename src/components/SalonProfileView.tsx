@@ -9,7 +9,7 @@ import {
   Scissors, Hand, Smile, Eye, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ServiceOffer } from '../types';
+import { ServiceOffer, SalonDbData, ServiceDbData, ProfessionalDbData } from '../types';
 import { SalonBookingModal, CatalogServiceItem } from './SalonBookingModal';
 import { formatSlotDateTime } from '../utils/dateFormatter';
 import { useTheme } from '../context/ThemeContext';
@@ -18,6 +18,7 @@ import { SalonNavContext } from './BottomNav';
 import { getAvailableSlotsForDate } from '../utils/bookingSlots';
 import { hapticSuccess, hapticLight } from '../utils/haptics';
 import { isValidCustomAvatar } from '../utils/avatarUtils';
+import { fetchCompleteSalonData } from '../services/supabaseApi';
 
 export interface SalonProfileViewProps {
   salonName: string;
@@ -253,28 +254,47 @@ export const SalonProfileView: React.FC<SalonProfileViewProps> = ({
   const salonOffers = offers.filter((o) => o.salonName === salonName);
   const primaryOffer = salonOffers[0] || offers[0];
 
-  // Informações consolidadas do salão
-  const salonInfo = {
-    name: salonName,
-    avatar: getSalonLogo(salonName, primaryOffer?.salonLogo),
-    coverImage: primaryOffer?.galleryImages?.[0] || primaryOffer?.imageUrl || 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=1200&q=80',
-    rating: primaryOffer?.rating || 4.9,
-    reviewsCount: primaryOffer?.reviewsCount || 84,
-    distance: primaryOffer?.distance || '850m',
-    address: primaryOffer?.salonAddress || 'Rua das Flores, 1420 - Centro',
-    city: 'Curitiba, PR',
-    phone: '(41) 99882-1140',
-    hours: 'Seg a Sáb: 09:00 às 20:00',
-    verified: true,
-    description: primaryOffer?.description || 'Espaço premium especializado em estética masculina e feminina de alta precisão, barboterapia, cortes modernos e bem-estar.',
-    isHomeCare: false,
-    amenities: [
-      { icon: Wifi, label: 'Wi-Fi 5G' },
-      { icon: Wind, label: 'Ar Climatizado' },
-      { icon: Coffee, label: 'Café Expresso / Bar' },
-      { icon: Car, label: 'Estacionamento' },
-    ],
-    professionals: [
+  // Sincronização em Tempo Real com o Supabase (Identidade Visual, Serviços e Equipe)
+  const [dbSalon, setDbSalon] = useState<SalonDbData | null>(null);
+  const [dbServices, setDbServices] = useState<ServiceDbData[]>([]);
+  const [dbProfessionals, setDbProfessionals] = useState<ProfessionalDbData[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const identifier = primaryOffer?.salonId || primaryOffer?.salonSlug || salonName;
+    if (identifier) {
+      fetchCompleteSalonData(identifier).then((res) => {
+        if (isMounted && res) {
+          if (res.salon) setDbSalon(res.salon);
+          if (res.services && res.services.length > 0) setDbServices(res.services);
+          if (res.professionals && res.professionals.length > 0) setDbProfessionals(res.professionals);
+        }
+      });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [salonName, primaryOffer?.salonId, primaryOffer?.salonSlug]);
+
+  // Informações consolidadas do salão com dados em tempo real da nuvem
+  const activeLogo = useMemo(() => {
+    if (isDark && dbSalon?.logo_dark_url) return dbSalon.logo_dark_url;
+    if (!isDark && dbSalon?.logo_light_url) return dbSalon.logo_light_url;
+    return dbSalon?.logo_url || dbSalon?.logo_light_url || dbSalon?.logo_dark_url || getSalonLogo(salonName, primaryOffer?.salonLogo);
+  }, [isDark, dbSalon, salonName, primaryOffer?.salonLogo]);
+
+  const salonPrimaryColor = dbSalon?.primary_color || (typeof dbSalon?.branding === 'object' ? dbSalon.branding?.primaryColor : undefined) || '#20C933';
+
+  const salonProfessionalsList = useMemo(() => {
+    if (dbProfessionals.length > 0) {
+      return dbProfessionals.map((p) => ({
+        name: p.name || 'Profissional',
+        role: p.role || 'Especialista',
+        avatar: p.avatar_url || '',
+        rating: p.rating_avg ? Number(p.rating_avg) : 5.0,
+      }));
+    }
+    return [
       {
         name: primaryOffer?.professionalName || 'Carlos Henrique',
         role: 'Master Barber & Hair Stylist',
@@ -293,7 +313,31 @@ export const SalonProfileView: React.FC<SalonProfileViewProps> = ({
         avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80',
         rating: 5.0,
       }
+    ];
+  }, [dbProfessionals, primaryOffer]);
+
+  const salonInfo = {
+    name: dbSalon?.trade_name || salonName,
+    avatar: activeLogo,
+    coverImage: dbSalon?.cover_url || primaryOffer?.galleryImages?.[0] || primaryOffer?.imageUrl || 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=1200&q=80',
+    rating: dbSalon?.rating_avg ? Number(dbSalon.rating_avg) : primaryOffer?.rating || 4.9,
+    reviewsCount: dbSalon?.rating_count || primaryOffer?.reviewsCount || 84,
+    distance: primaryOffer?.distance || '850m',
+    address: dbSalon?.address || primaryOffer?.salonAddress || 'Rua das Flores, 1420 - Centro',
+    city: dbSalon?.city ? `${dbSalon.city}${dbSalon.state ? ', ' + dbSalon.state : ''}` : 'Curitiba, PR',
+    phone: dbSalon?.phone_whatsapp || '(41) 99882-1140',
+    hours: typeof dbSalon?.opening_hours === 'string' ? dbSalon.opening_hours : 'Seg a Sáb: 09:00 às 20:00',
+    verified: dbSalon?.is_verified !== undefined ? dbSalon.is_verified : true,
+    description: dbSalon?.description || primaryOffer?.description || 'Espaço premium especializado em estética masculina e feminina de alta precisão, barboterapia, cortes modernos e bem-estar.',
+    isHomeCare: Boolean(dbSalon?.home_delivery_enabled || primaryOffer?.homeDeliveryEnabled),
+    primaryColor: salonPrimaryColor,
+    amenities: [
+      { icon: Wifi, label: 'Wi-Fi 5G' },
+      { icon: Wind, label: 'Ar Climatizado' },
+      { icon: Coffee, label: 'Café Expresso / Bar' },
+      { icon: Car, label: 'Estacionamento' },
     ],
+    professionals: salonProfessionalsList,
   };
 
   // Dinâmica: Equipe vs Perfil / Espaço vs Atendimento
@@ -464,89 +508,104 @@ export const SalonProfileView: React.FC<SalonProfileViewProps> = ({
     };
   }, [activeTab, spaceTabLabel, SpaceIcon, ServicesIcon, onRegisterBottomNav]);
 
-  // Catálogo completo de serviços com fotos e cards enquadrados de tamanho uniforme
-  const catalogServices: CatalogServiceItem[] = [
-    {
-      id: 'srv-1',
-      title: 'Corte Degradê / Fade Moderno',
-      duration: '40 min',
-      price: 55,
-      description: 'Corte com acabamento preciso na lâmina, lavagem especial e finalização com pomada matte.',
-      category: 'Cabelo',
-      image: primaryOffer?.imageUrl || 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&w=800&q=80',
-      aspectRatio: 'aspect-[3/4]', // Vertical Alto
-    },
-    {
-      id: 'srv-2',
-      title: 'Barba Terapia Premium',
-      duration: '35 min',
-      price: 45,
-      description: 'Design de barba com toalha quente aromática, óleos essenciais e balm pós-barba.',
-      category: 'Barba',
-      image: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=800&q=80',
-      aspectRatio: 'aspect-square', // Quadrado
-    },
-    {
-      id: 'srv-3',
-      title: 'Combo Corte + Barba VIP',
-      duration: '60 min',
-      price: 90,
-      description: 'Experiência completa de corte de cabelo e tratamento completo de barba.',
-      category: 'Combos',
-      image: 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=800&q=80',
-      aspectRatio: 'aspect-[4/3]', // Horizontal Panorâmico
-    },
-    {
-      id: 'srv-4',
-      title: 'Corte na Tesoura & Textura',
-      duration: '45 min',
-      price: 65,
-      description: 'Técnica de corte à mão livre na tesoura com alinhamento e finalização personalizada.',
-      category: 'Cabelo',
-      image: 'https://images.unsplash.com/photo-1517832606299-7ae9b720a186?auto=format&fit=crop&w=800&q=80',
-      aspectRatio: 'aspect-[4/5]', // Vertical Elegante
-    },
-    {
-      id: 'srv-5',
-      title: 'Acabamento na Navalha & Visagismo',
-      duration: '20 min',
-      price: 30,
-      description: 'Desenho de linhas com navalha descartável, visagismo facial e pós-barba calmante.',
-      category: 'Rosto',
-      image: 'https://images.unsplash.com/photo-1512690459411-b9245aed614b?auto=format&fit=crop&w=800&q=80',
-      aspectRatio: 'aspect-square', // Quadrado
-    },
-    {
-      id: 'srv-6',
-      title: 'Mechas & Iluminação de Fios',
-      duration: '90 min',
-      price: 130,
-      description: 'Técnica personalizada de iluminação dos fios e tonalização exclusiva.',
-      category: 'Cabelo',
-      image: 'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?auto=format&fit=crop&w=800&q=80',
-      aspectRatio: 'aspect-[3/4]', // Vertical Alto
-    },
-    {
-      id: 'srv-7',
-      title: 'Lavagem & Hidratação Especial',
-      duration: '35 min',
-      price: 50,
-      description: 'Higienização com massagem no couro cabeludo e máscara reconstrutora intensiva.',
-      category: 'Tratamentos',
-      image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80',
-      aspectRatio: 'aspect-[4/3]', // Horizontal Panorâmico
-    },
-    {
-      id: 'srv-8',
-      title: 'Cuidado Facial & Toalha Quente',
-      duration: '40 min',
-      price: 60,
-      description: 'Higienização facial com esfoliação suave e vapor de toalha aquecida com ervas.',
-      category: 'Estética',
-      image: 'https://images.unsplash.com/photo-1507081323647-4d250478b919?auto=format&fit=crop&w=800&q=80',
-      aspectRatio: 'aspect-[4/5]', // Vertical Elegante
-    },
-  ];
+  // Catálogo completo de serviços com dados em tempo real da nuvem (suporte unificado a title e name)
+  const catalogServices: CatalogServiceItem[] = useMemo(() => {
+    if (dbServices.length > 0) {
+      return dbServices.map((s, idx) => ({
+        id: s.id,
+        title: s.title || s.name || 'Serviço',
+        duration: s.duration_minutes ? `${s.duration_minutes} min` : '40 min',
+        price: s.price,
+        description: s.description || 'Procedimento realizado com técnicas e produtos profissionais de excelência.',
+        category: s.category ? (s.category.charAt(0).toUpperCase() + s.category.slice(1)) : 'Cabelo',
+        image: s.image_url || primaryOffer?.imageUrl || 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&w=800&q=80',
+        aspectRatio: idx % 4 === 0 ? 'aspect-[3/4]' : idx % 3 === 0 ? 'aspect-square' : idx % 2 === 0 ? 'aspect-[4/3]' : 'aspect-[4/5]',
+      }));
+    }
+
+    return [
+      {
+        id: 'srv-1',
+        title: 'Corte Degradê / Fade Moderno',
+        duration: '40 min',
+        price: 55,
+        description: 'Corte com acabamento preciso na lâmina, lavagem especial e finalização com pomada matte.',
+        category: 'Cabelo',
+        image: primaryOffer?.imageUrl || 'https://images.unsplash.com/photo-1599351431202-1e0f0137899a?auto=format&fit=crop&w=800&q=80',
+        aspectRatio: 'aspect-[3/4]', // Vertical Alto
+      },
+      {
+        id: 'srv-2',
+        title: 'Barba Terapia Premium',
+        duration: '35 min',
+        price: 45,
+        description: 'Design de barba com toalha quente aromática, óleos essenciais e balm pós-barba.',
+        category: 'Barba',
+        image: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=800&q=80',
+        aspectRatio: 'aspect-square', // Quadrado
+      },
+      {
+        id: 'srv-3',
+        title: 'Combo Corte + Barba VIP',
+        duration: '60 min',
+        price: 90,
+        description: 'Experiência completa de corte de cabelo e tratamento completo de barba.',
+        category: 'Combos',
+        image: 'https://images.unsplash.com/photo-1622286342621-4bd786c2447c?auto=format&fit=crop&w=800&q=80',
+        aspectRatio: 'aspect-[4/3]', // Horizontal Panorâmico
+      },
+      {
+        id: 'srv-4',
+        title: 'Corte na Tesoura & Textura',
+        duration: '45 min',
+        price: 65,
+        description: 'Técnica de corte à mão livre na tesoura com alinhamento e finalização personalizada.',
+        category: 'Cabelo',
+        image: 'https://images.unsplash.com/photo-1517832606299-7ae9b720a186?auto=format&fit=crop&w=800&q=80',
+        aspectRatio: 'aspect-[4/5]', // Vertical Elegante
+      },
+      {
+        id: 'srv-5',
+        title: 'Acabamento na Navalha & Visagismo',
+        duration: '20 min',
+        price: 30,
+        description: 'Desenho de linhas com navalha descartável, visagismo facial e pós-barba calmante.',
+        category: 'Rosto',
+        image: 'https://images.unsplash.com/photo-1512690459411-b9245aed614b?auto=format&fit=crop&w=800&q=80',
+        aspectRatio: 'aspect-square', // Quadrado
+      },
+      {
+        id: 'srv-6',
+        title: 'Mechas & Iluminação de Fios',
+        duration: '90 min',
+        price: 130,
+        description: 'Técnica personalizada de iluminação dos fios e tonalização exclusiva.',
+        category: 'Cabelo',
+        image: 'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?auto=format&fit=crop&w=800&q=80',
+        aspectRatio: 'aspect-[3/4]', // Vertical Alto
+      },
+      {
+        id: 'srv-7',
+        title: 'Lavagem & Hidratação Especial',
+        duration: '35 min',
+        price: 50,
+        description: 'Higienização com massagem no couro cabeludo e máscara reconstrutora intensiva.',
+        category: 'Tratamentos',
+        image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=800&q=80',
+        aspectRatio: 'aspect-[4/3]', // Horizontal Panorâmico
+      },
+      {
+        id: 'srv-8',
+        title: 'Cuidado Facial & Toalha Quente',
+        duration: '40 min',
+        price: 60,
+        description: 'Higienização facial com esfoliação suave e vapor de toalha aquecida com ervas.',
+        category: 'Estética',
+        image: 'https://images.unsplash.com/photo-1507081323647-4d250478b919?auto=format&fit=crop&w=800&q=80',
+        aspectRatio: 'aspect-[4/5]', // Vertical Elegante
+      },
+    ];
+  }, [dbServices, primaryOffer]);
 
   const handleOpenBooking = (srv?: CatalogServiceItem, directToTimeGrid = false, timeSlot?: string, dateIso?: string) => {
     setBookingService(srv || catalogServices[0]);

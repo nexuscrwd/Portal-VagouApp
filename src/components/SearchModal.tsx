@@ -4,6 +4,7 @@ import { ServiceOffer } from '../types';
 import { RadarOfferCard } from './RadarOfferCard';
 import { VoiceRecognitionSession, isSpeechRecognitionSupported } from '../utils/speechRecognition';
 import { hapticLight, hapticSuccess } from '../utils/haptics';
+import { useTheme } from '../context/ThemeContext';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   favorites = [],
   onToggleFavorite,
 }) => {
+  const { isDark } = useTheme();
   const [query, setQuery] = useState<string>('');
   const [isListening, setIsListening] = useState<boolean>(false);
   const [voiceFeedback, setVoiceFeedback] = useState<string | null>(null);
@@ -128,7 +130,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-xl animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-xl animate-fadeIn">
       {/* Background click to close */}
       <div 
         className="absolute inset-0 -z-10 cursor-pointer" 
@@ -136,18 +138,24 @@ export const SearchModal: React.FC<SearchModalProps> = ({
         aria-label="Fechar busca"
       />
 
-      {/* Floating Center Search Container (Opção A) */}
+      {/* Floating Center Search Container */}
       <div className="w-full max-w-lg flex flex-col transition-all duration-200 animate-in zoom-in-95">
         
         {/* Floating Search Bar */}
-        <div className={`relative bg-[#151A1E] border-2 ${
-          isListening ? 'border-[#20C933] shadow-[0_0_25px_rgba(32,201,51,0.35)]' : 'border-slate-700/80 focus-within:border-[#20C933]'
-        } rounded p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.8)] flex items-center gap-1 transition-all`}>
+        <div className={`relative border-2 ${
+          isListening
+            ? 'border-[#20C933] shadow-[0_0_25px_rgba(32,201,51,0.35)]'
+            : isDark
+            ? 'bg-[#151A1E] border-slate-700/80 focus-within:border-[#20C933]'
+            : 'bg-white border-slate-300 focus-within:border-[#20C933] shadow-xl'
+        } rounded-2xl p-1.5 shadow-[0_20px_50px_rgba(0,0,0,0.4)] flex items-center gap-1 transition-all`}>
           {/* Action Button: Search */}
           <button
             type="button"
             onClick={() => inputRef.current?.focus()}
-            className="p-2.5 rounded text-[#20C933] hover:bg-slate-800/80 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+            className={`p-2.5 rounded-xl transition-all flex items-center justify-center cursor-pointer ${
+              isDark ? 'text-[#20C933] hover:bg-slate-800/80' : 'text-[#20C933] hover:bg-slate-100'
+            }`}
             aria-label="Buscar"
             title="Buscar"
           >
@@ -160,7 +168,9 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={isListening ? 'Ouvindo sua voz...' : 'Ex: Barba, Degradê...'}
-            className="flex-1 bg-transparent py-3 pr-2 text-base sm:text-lg font-medium text-white placeholder-slate-500 focus:outline-none"
+            className={`flex-1 bg-transparent py-3 pr-2 text-base sm:text-lg font-medium focus:outline-none ${
+              isDark ? 'text-white placeholder-slate-500' : 'text-slate-900 placeholder-slate-400'
+            }`}
           />
 
           {/* Action Button: Voice Search (Web Speech API) */}
@@ -168,10 +178,12 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             id="btn-busca-por-voz"
             type="button"
             onClick={handleToggleVoiceSearch}
-            className={`p-2.5 rounded transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
+            className={`p-2.5 rounded-xl transition-all flex items-center justify-center cursor-pointer active:scale-95 ${
               isListening
                 ? 'bg-[#20C933] text-white shadow-lg animate-pulse'
-                : 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
+                : isDark
+                ? 'bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700'
+                : 'bg-slate-100 text-slate-700 hover:text-slate-900 hover:bg-slate-200'
             }`}
             aria-label={isListening ? 'Parar escuta de voz' : 'Pesquisar por comando de voz'}
             title={isListening ? 'Parar escuta de voz' : 'Pesquisar por voz'}
@@ -179,7 +191,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             {isListening ? (
               <Mic className="w-4 h-4 text-white animate-bounce" />
             ) : (
-              <Mic className="w-4 h-4 text-slate-300" />
+              <Mic className="w-4 h-4" />
             )}
           </button>
 
@@ -191,7 +203,9 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                 setQuery('');
                 inputRef.current?.focus();
               }}
-              className="p-2.5 rounded bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+              className={`p-2.5 rounded-xl transition-all flex items-center justify-center cursor-pointer ${
+                isDark ? 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
               aria-label="Limpar campo de busca"
               title="Limpar campo"
             >
@@ -201,7 +215,9 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-2.5 rounded bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-700 active:scale-95 transition-all flex items-center justify-center cursor-pointer border border-slate-700/60"
+              className={`p-2.5 rounded-xl transition-all flex items-center justify-center cursor-pointer border ${
+                isDark ? 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-700 border-slate-700/60' : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 border-slate-200'
+              }`}
               aria-label="Fechar busca"
               title="Fechar"
             >
@@ -212,8 +228,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
 
         {/* Voice Feedback Banner */}
         {voiceFeedback && (
-          <div className="mt-2.5 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-center flex items-center justify-center gap-2 text-[#20C933] animate-fadeIn">
-            {isListening ? <Volume2 className="w-3.5 h-3.5 animate-pulse" /> : null}
+          <div className={`mt-2.5 px-3 py-1.5 border rounded-xl text-xs text-center flex items-center justify-center gap-2 animate-fadeIn ${
+            isDark ? 'bg-slate-900 border-slate-800 text-[#20C933]' : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}>
+            {isListening ? <Volume2 className="w-3.5 h-3.5 animate-pulse text-[#20C933]" /> : null}
             <span className="font-medium">{voiceFeedback}</span>
           </div>
         )}
@@ -225,7 +243,11 @@ export const SearchModal: React.FC<SearchModalProps> = ({
               <button
                 key={tag}
                 onClick={() => setQuery(tag)}
-                className="px-3.5 py-1.5 rounded bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-medium transition active:scale-95 shadow-sm"
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition active:scale-95 shadow-xs border cursor-pointer ${
+                  isDark
+                    ? 'bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border-slate-800'
+                    : 'bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border-slate-200 shadow-slate-200/50'
+                }`}
               >
                 {tag}
               </button>
@@ -233,15 +255,19 @@ export const SearchModal: React.FC<SearchModalProps> = ({
           </div>
         ) : (
           /* State 2: Results revealed directly under the central search bar */
-          <div className="mt-3 bg-[#151A1E]/95 border border-slate-800 rounded p-3 shadow-2xl max-h-[60vh] overflow-y-auto space-y-3 no-scrollbar">
-            <div className="flex items-center justify-between px-2 pt-1 pb-2 border-b border-slate-800/80 text-xs">
+          <div className={`mt-3 border rounded-2xl p-3 shadow-2xl max-h-[60vh] overflow-y-auto space-y-3 no-scrollbar ${
+            isDark ? 'bg-[#151A1E]/95 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900 shadow-xl'
+          }`}>
+            <div className={`flex items-center justify-between px-2 pt-1 pb-2 border-b text-xs ${
+              isDark ? 'border-slate-800/80' : 'border-slate-100'
+            }`}>
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#20C933]" />
-                <span className="font-bold text-slate-200 font-['Poppins']">
+                <span className={`font-bold font-['Poppins'] ${isDark ? 'text-slate-200' : 'text-slate-900'}`}>
                   {filteredOffers.length} {filteredOffers.length === 1 ? 'vaga encontrada' : 'vagas encontradas'}
                 </span>
               </div>
-              <span className="text-slate-400 text-[11px]">
+              <span className={`text-[11px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                 para "{query}"
               </span>
             </div>
@@ -265,11 +291,11 @@ export const SearchModal: React.FC<SearchModalProps> = ({
               ))
             ) : (
               <div className="py-8 text-center px-4">
-                <Compass className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                <p className="text-sm font-semibold text-slate-300">
+                <Compass className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                <p className={`text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
                   Nenhuma vaga encontrada para "{query}"
                 </p>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className={`text-xs mt-1 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                   Tente buscar por outro termo ou nome de salão/barbearia.
                 </p>
               </div>

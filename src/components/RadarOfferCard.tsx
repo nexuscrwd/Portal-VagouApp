@@ -5,6 +5,7 @@ import { MediaFallbackCard } from './MediaFallbackCard';
 import { formatSlotDateTime } from '../utils/dateFormatter';
 import { getSalonLogo } from '../utils/salonLogos';
 import { hapticLight, hapticMedium } from '../utils/haptics';
+import { useTheme } from '../context/ThemeContext';
 
 interface RadarOfferCardProps {
   offer: ServiceOffer;
@@ -27,6 +28,7 @@ export const RadarOfferCard: React.FC<RadarOfferCardProps> = ({
   onFilterBySalon,
   onOpenSalonProfile,
 }) => {
+  const { isDark } = useTheme();
   const [isMuted, setIsMuted] = useState<boolean>(true);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [carouselIndex, setCarouselIndex] = useState<number>(0);
@@ -141,7 +143,9 @@ export const RadarOfferCard: React.FC<RadarOfferCardProps> = ({
         if (isSwiping.current) return;
         onSelectOffer(offer);
       }}
-      className="relative z-0 w-full rounded overflow-hidden bg-slate-900 border border-slate-800 shadow-lg group hover:border-emerald-500/50 transition-all duration-300 cursor-pointer"
+      className={`relative z-0 w-full rounded-2xl overflow-hidden border shadow-lg group hover:border-[#20C933]/50 transition-all duration-300 cursor-pointer ${
+        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-slate-200/50'
+      }`}
     >
       {/* Media Canvas Container */}
       <div className="relative w-full h-[390px] sm:h-[440px] bg-slate-950 overflow-hidden">
