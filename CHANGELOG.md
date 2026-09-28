@@ -15,6 +15,36 @@ Este arquivo registra cronologicamente todas as modificações relevantes realiz
 
 ## 📜 Registros de Alterações
 
+### [2026-09-28] — Homologação do Boletim bol-016 & Endereço e Contatos Comerciais do Salão
+- **Tipo:** `[Boletim Técnico / bol-016 / Commercial Address & Specific Contacts / Triad Sync]`
+- **Motivo / Solicitação:** Homologação do Boletim Técnico `bol-016` proveniente do `admvapp`. O Portal (`pvapp`) garante o consumo e separação entre o endereço e contatos pessoais da pessoa física (`profiles`/`clients`) e os dados comerciais do estabelecimento (`salons`), utilizando `salons.address`, `salons.cep`, `salons.neighborhood`, `salons.city`, `salons.phone_whatsapp`, `salons.phone_landline` e `salons.email` para cálculo de GPS, Radar e rotas.
+- **Arquivos Impactados:**
+  - `src/types.ts`: Atualização do tipo `SalonDbData` com `subdomain`, `phone_whatsapp`, `phone_landline`, `street_number` e `complement`.
+  - `src/services/supabaseApi.ts`: Atualização da função `registerSalonInSupabase` com persistência de contatos e endereço comercial.
+  - `src/components/RegisterSalonModal.tsx`: Suporte aos contatos comerciais e direcionamento ao Motor Soberano de Cadastro.
+  - `CHANGELOG.md`: Registro de conformidade com o Boletim `bol-016`.
+- **Validação:** `lint_applet` e `compile_applet` 100% aprovados com **0 erros**.
+
+### [2026-09-27] — Homologação do Boletim bol-014 & Mapeamento Canônico da Tríade
+- **Tipo:** `[Boletim Técnico / bol-014 / Canonical Domains / Subdomain Guard Sync]`
+- **Motivo / Solicitação:** Homologação e retificação do Mapeamento Canônico de Domínios da Tríade Vagou. Atualizado o endereço oficial do app do parceiro para `meunegocio.vagouapp.com` (`mnvapp`) e do Admin Master para `admin.vagouapp.com` (`admvapp`). Adicionada a validação da lista de subdomínios reservados do sistema (`RESERVED_SUBDOMAINS`) em `registerSalonInSupabase`.
+- **Arquivos Impactados:**
+  - `src/services/supabaseApi.ts`: Exportação de `RESERVED_SUBDOMAINS` e trava de subdomínios reservados em `registerSalonInSupabase`.
+  - `CHANGELOG.md`: Registro de conformidade com o Boletim `bol-014`.
+- **Validação:** `lint_applet` e `compile_applet` 100% aprovados com **0 erros**.
+
+### [2026-09-27] — Homologação do Boletim bol-011 & Modal de Cadastro de Salão (`?slug=`)
+- **Tipo:** `[Boletim Técnico / bol-011 / Wildcard Subdomain / Salon Registration]`
+- **Motivo / Solicitação:** Atendimento integral às instruções do Boletim Técnico `bol-011-wildcard-subdomain-security-guard` enviado pelo `admvapp`. Criado o componente `RegisterSalonModal.tsx` e integradas rotas/parâmetros de URL `?slug=` e `/cadastrar-salao`, permitindo o pré-preenchimento automático do subdomínio e exigindo conta pessoal ativa (`auth.users`) antes de gravar novos estabelecimentos na tabela `public.salons`.
+- **Arquivos Impactados:**
+  - `src/components/RegisterSalonModal.tsx`: Criação do modal corporativo de cadastro de salão/estabelecimento com pré-preenchimento de subdomínio e validação de conta pessoal.
+  - `src/services/supabaseApi.ts`: Inclusão da função `registerSalonInSupabase` com validação de duplicidade de slug.
+  - `src/components/ProfileDrawer.tsx`: Adição do botão "Cadastrar meu Negócio" no menu do perfil.
+  - `src/App.tsx`: Roteamento por parâmetro `?slug=` e `/cadastrar-salao`.
+  - `src/types.ts`: Atualização do tipo `SalonDbData`.
+  - `CHANGELOG.md`: Registro de conformidade com o Boletim `bol-011`.
+- **Validação:** `lint_applet` e `compile_applet` 100% aprovados com **0 erros**.
+
 ### [2026-09-27] — Fallback Inteligente de Banco de Dados (`mnvapp` Sync)
 - **Tipo:** `[Fix / Profile DB Fallback / Triad Alignment]`
 - **Motivo / Solicitação:** Aplicação imediata do Comunicado Técnico Oficial do `mnvapp`. Aprimorada a função `fetchUserProfileFromDb` em `supabaseApi.ts` com passos de fallback inteligente (busca automática dos registros mais recentes com foto de avatar em `professionals` e `clients` quando o `localStorage` não possuir e-mail gravado ou contiver nome genérico), garantindo exibição instantânea do avatar de Elisa Pires.

@@ -21,6 +21,7 @@ import { ProfileDrawer } from './components/ProfileDrawer';
 import { VagouAuthModal } from './components/VagouAuthModal';
 import { InterestOnboardingModal } from './components/InterestOnboardingModal';
 import { AddFamilyMemberModal } from './components/AddFamilyMemberModal';
+import { RegisterSalonModal } from './components/RegisterSalonModal';
 import { InstallModal } from './components/InstallModal';
 import { SplashScreen } from './components/SplashScreen';
 import { scheduleAppointmentReminder } from './utils/notifications';
@@ -254,6 +255,8 @@ export const App: React.FC = () => {
 
   const [isAddFamilyModalOpen, setIsAddFamilyModalOpen] = useState(false);
   const [editingFamilyMember, setEditingFamilyMember] = useState<FamilyMemberProfile | null>(null);
+  const [isRegisterSalonModalOpen, setIsRegisterSalonModalOpen] = useState(false);
+  const [registerSalonInitialSlug, setRegisterSalonInitialSlug] = useState('');
 
   // Sincroniza dependentes do Supabase quando o usuário estiver logado
   useEffect(() => {
@@ -404,33 +407,45 @@ export const App: React.FC = () => {
   useEffect(() => {
     loadLiveAppointments();
 
-    // Roteamento por Subdomínio Dinâmico (ex: nomedonegocio.vagouapp.com) e Parâmetros de URL
+    // Roteamento por Subdomínio Dinâmico (ex: nomedonegocio.vagouapp.com) e Parâmetros de URL (?slug=)
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      const urlSlug = urlParams.get('salon') || urlParams.get('slug');
-      const hostname = window.location.hostname.toLowerCase();
+      const urlSlug = urlParams.get('slug') || urlParams.get('salon');
+      const isRegisterPath =
+        window.location.pathname.includes('/cadastrar-salao') ||
+        urlParams.has('cadastrar-salao') ||
+        window.location.search.includes('cadastrar-salao');
 
-      let targetSlug = urlSlug;
-
-      if (!targetSlug) {
-        // Trata subdomínios como nomedonegocio.vagoapp.com ou nomedonegocio.vagouapp.com
-        const parts = hostname.split('.');
-        if (parts.length >= 2) {
-          const firstSub = parts[0];
-          const reservedSubs = ['www', 'app', 'dev', 'ais-dev', 'ais-pre', 'localhost', '127'];
-          if (!reservedSubs.includes(firstSub)) {
-            targetSlug = firstSub;
-          }
-        }
+      if (urlSlug) {
+        setRegisterSalonInitialSlug(urlSlug);
       }
 
-      if (targetSlug) {
-        const foundSalonOffer = MOCK_OFFERS.find(
-          (o) => o.salonSlug === targetSlug || o.salonName.toLowerCase().includes(targetSlug.toLowerCase())
-        );
-        if (foundSalonOffer) {
-          setSelectedOffer(foundSalonOffer);
-          setCurrentScreen('detalhe-oferta');
+      if (isRegisterPath) {
+        setIsRegisterSalonModalOpen(true);
+      } else {
+        const hostname = window.location.hostname.toLowerCase();
+        let targetSlug = urlSlug;
+
+        if (!targetSlug) {
+          // Trata subdomínios como nomedonegocio.vagoapp.com ou nomedonegocio.vagouapp.com
+          const parts = hostname.split('.');
+          if (parts.length >= 2) {
+            const firstSub = parts[0];
+            const reservedSubs = ['www', 'app', 'dev', 'ais-dev', 'ais-pre', 'localhost', '127', 'portal'];
+            if (!reservedSubs.includes(firstSub)) {
+              targetSlug = firstSub;
+            }
+          }
+        }
+
+        if (targetSlug) {
+          const foundSalonOffer = MOCK_OFFERS.find(
+            (o) => o.salonSlug === targetSlug || o.salonName.toLowerCase().includes(targetSlug.toLowerCase())
+          );
+          if (foundSalonOffer) {
+            setSelectedOffer(foundSalonOffer);
+            setCurrentScreen('detalhe-oferta');
+          }
         }
       }
     }
@@ -879,6 +894,7 @@ export const App: React.FC = () => {
               }}
               onEditFamilyMember={handleEditFamilyMember}
               onDeleteFamilyMember={handleDeleteFamilyMember}
+              onOpenRegisterSalonModal={() => setIsRegisterSalonModalOpen(true)}
             />
 
             {/* Modal de Cadastro de Dependente / Família (Vagou Family) */}
@@ -890,6 +906,18 @@ export const App: React.FC = () => {
                 setEditingFamilyMember(null);
               }}
               onAddMember={handleAddOrUpdateFamilyMember}
+            />
+
+            {/* Modal de Cadastro de Salão / Novo Negócio (?slug=) */}
+            <RegisterSalonModal
+              isOpen={isRegisterSalonModalOpen}
+              onClose={() => setIsRegisterSalonModalOpen(false)}
+              initialSlug={registerSalonInitialSlug}
+              currentUser={currentUser}
+              onOpenAuthModal={() => {
+                setIsRegisterSalonModalOpen(false);
+                setIsAuthModalOpen(true);
+              }}
             />
 
             {/* Interest Onboarding / Personalization Modal */}

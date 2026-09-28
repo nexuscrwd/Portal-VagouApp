@@ -1731,6 +1731,96 @@ export async function updateSalonDetailsInDb(
   }
 }
 
+export const RESERVED_SUBDOMAINS = [
+  'adm', 'admin', 'admvapp', 'portal', 'pvapp', 'meunegocio', 'mnvapp', 'www', 'api', 'suporte', 'ajuda', 'vagou', 'vagouapp', 'localhost', 'app', 'dashboard', 'status', 'auth', 'login', 'signup', 'checkout', 'pay', 'billing'
+];
+
+/**
+ * Cadastra um novo estabelecimento (Salão/Barbearia) na tabela public.salons
+ * Pré-requisito: Usuário pessoal autenticado (auth.users)
+ */
+export async function registerSalonInSupabase(salonData: {
+  name: string;
+  slug: string;
+  phone?: string;
+  phoneWhatsapp?: string;
+  phoneLandline?: string;
+  email?: string;
+  segment?: string;
+  address?: string;
+  cep?: string;
+  streetNumber?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  ownerId?: string;
+}): Promise<{ success: boolean; data?: SalonDbData; error?: string }> {
+  try {
+    const cleanSlug = salonData.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
+    const cleanName = salonData.name.trim();
+
+    if (!cleanSlug || cleanSlug.length < 3) {
+      return { success: false, error: 'O nome do subdomínio deve conter pelo menos 3 caracteres.' };
+    }
+
+    if (RESERVED_SUBDOMAINS.includes(cleanSlug)) {
+      return { success: false, error: 'Este subdomínio é reservado pelo sistema Vagou e não pode ser utilizado.' };
+    }
+
+    // 1. Verifica se o slug já existe na tabela salons
+    const { data: existing } = await supabase
+      .from('salons')
+      .select('id, slug')
+      .or(`slug.eq.${cleanSlug},subdomain.eq.${cleanSlug}`)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      return { success: false, error: 'Este subdomínio/slug já está em uso por outro estabelecimento.' };
+    }
+
+    // 2. Insere o novo salão no Supabase com status 'active' e contatos/endereço comercial
+    const payload = {
+      name: cleanName,
+      slug: cleanSlug,
+      subdomain: cleanSlug,
+      phone: salonData.phone || salonData.phoneWhatsapp || null,
+      phone_whatsapp: salonData.phoneWhatsapp || salonData.phone || null,
+      phone_landline: salonData.phoneLandline || null,
+      email: salonData.email || null,
+      category: salonData.segment || 'barbearia',
+      address: salonData.address || 'São Paulo, SP',
+      cep: salonData.cep || null,
+      street_number: salonData.streetNumber || null,
+      complement: salonData.complement || null,
+      neighborhood: salonData.neighborhood || null,
+      city: salonData.city || 'São Paulo',
+      state: salonData.state || 'SP',
+      owner_id: salonData.ownerId || null,
+      status: 'active',
+      is_verified: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from('salons')
+      .insert(payload)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('[Supabase Register Salon] Erro ao cadastrar salão:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data: data as SalonDbData };
+  } catch (err: any) {
+    console.error('[Supabase Register Salon] Falha crítica:', err);
+    return { success: false, error: err?.message || 'Erro ao registrar estabelecimento' };
+  }
+}
+
 /**
  * Consulta os serviços de um salão com suporte unificado a `title` e `name`.
  */

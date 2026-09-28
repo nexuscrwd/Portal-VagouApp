@@ -169,13 +169,19 @@ export interface SalonBranding {
 
 export interface SalonDbData {
   id: string;
+  name?: string;
   slug?: string;
+  subdomain?: string;
   trade_name: string;
   legal_name?: string;
   document_number?: string;
+  phone?: string;
   phone_whatsapp?: string;
+  phone_landline?: string;
   email?: string;
   address?: string;
+  street_number?: string;
+  complement?: string;
   neighborhood?: string;
   city?: string;
   state?: string;

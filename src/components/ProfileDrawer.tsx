@@ -25,6 +25,7 @@ import {
   Sparkles,
   FileText,
   Camera,
+  Building2,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { hapticLight, hapticSuccess } from '../utils/haptics';
@@ -62,6 +63,7 @@ interface ProfileDrawerProps {
   onOpenAddFamilyModal?: () => void;
   onEditFamilyMember?: (member: FamilyMemberProfile) => void;
   onDeleteFamilyMember?: (id: string) => void;
+  onOpenRegisterSalonModal?: () => void;
 }
 
 export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
@@ -84,6 +86,7 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
   onOpenAddFamilyModal,
   onEditFamilyMember,
   onDeleteFamilyMember,
+  onOpenRegisterSalonModal,
 }) => {
   const { isDark, toggleTheme } = useTheme();
 
@@ -850,6 +853,34 @@ export const ProfileDrawer: React.FC<ProfileDrawerProps> = ({
                 </div>
               </div>
               <ChevronRight className={`w-4 h-4 transition ${isDark ? 'text-slate-500 group-hover:text-white' : 'text-slate-400 group-hover:text-slate-900'}`} />
+            </button>
+
+            {/* Cadastrar meu Negócio / Salão Parceiro */}
+            <button
+              onClick={() => {
+                onClose();
+                if (onOpenRegisterSalonModal) {
+                  onOpenRegisterSalonModal();
+                } else {
+                  window.location.href = 'https://portal.vagouapp.com/cadastrar-salao';
+                }
+              }}
+              className={`w-full p-3 rounded-xl border text-left flex items-center justify-between transition group cursor-pointer ${
+                isDark
+                  ? 'bg-emerald-950/30 hover:bg-emerald-900/40 border-emerald-500/30 text-white'
+                  : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-slate-900 shadow-xs'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+                  <Building2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className={`text-xs font-bold block ${isDark ? 'text-emerald-400' : 'text-emerald-700'}`}>Cadastrar meu Negócio</span>
+                  <span className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Criar PWA do seu salão no VagouApp</span>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-emerald-400 transition" />
             </button>
 
             {/* Botão Sair da Conta */}
