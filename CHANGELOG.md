@@ -15,6 +15,16 @@ Este arquivo registra cronologicamente todas as modificações relevantes realiz
 
 ## 📜 Registros de Alterações
 
+### [2026-09-29] — Erradicação dos Formulários Nativos no pvapp & Adoção do Embed Central (Tríade Sync)
+- **Tipo:** `[Arquitetura Soberana / Erradicação de Formulários Nativos / Embed postMessage]`
+- **Motivo / Solicitação:** Atendimento imediato ao Comunicado Técnico da Tríade emitido pelo `mnvapp`/`admvapp`. Erradicados todos os formulários e lógicas manuais de cadastro e login nativos no `pvapp`. A autenticação de clientes e credenciamento de estabelecimentos agora carregam exclusivamente o endpoint central soberano `https://admin.vagouapp.com/cadastro?embed=true`, com recepção e sincronização reativa de sessão via `window.addEventListener('message')` (`VAGOU_REGISTRATION_SUCCESS` e `VAGOU_AUTH_SUCCESS`).
+- **Arquivos Impactados:**
+  - `src/components/VagouAuthModal.tsx`: Substituição completa do formulário manual pelo container Embed do Motor Soberano com escuta de `postMessage` e sincronização de sessão via `supabase.auth.setSession`.
+  - `src/components/RegisterSalonModal.tsx`: Substituição do formulário manual de salão pelo container Embed com pré-seleção de tipo profissional e slug.
+  - `src/components/PasswordRecoveryModal.tsx`: Removido conforme Mandamento 5 (Limpeza Pós-Obra), pois a recuperação agora é soberana no Admin.
+  - `CHANGELOG.md`: Registro da homologação.
+- **Validação:** `lint_applet` e `compile_applet` 100% aprovados com **0 erros**.
+
 ### [2026-09-28] — Homologação do Boletim bol-016 & Endereço e Contatos Comerciais do Salão
 - **Tipo:** `[Boletim Técnico / bol-016 / Commercial Address & Specific Contacts / Triad Sync]`
 - **Motivo / Solicitação:** Homologação do Boletim Técnico `bol-016` proveniente do `admvapp`. O Portal (`pvapp`) garante o consumo e separação entre o endereço e contatos pessoais da pessoa física (`profiles`/`clients`) e os dados comerciais do estabelecimento (`salons`), utilizando `salons.address`, `salons.cep`, `salons.neighborhood`, `salons.city`, `salons.phone_whatsapp`, `salons.phone_landline` e `salons.email` para cálculo de GPS, Radar e rotas.
