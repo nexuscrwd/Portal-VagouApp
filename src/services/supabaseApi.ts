@@ -1768,11 +1768,11 @@ export async function registerSalonInSupabase(salonData: {
       return { success: false, error: 'Este subdomínio é reservado pelo sistema Vagou e não pode ser utilizado.' };
     }
 
-    // 1. Verifica se o slug já existe na tabela salons
+    // 1. Verifica se o slug já existe na tabela salons (compatível com Master SQL v3.0.0)
     const { data: existing } = await supabase
       .from('salons')
       .select('id, slug')
-      .or(`slug.eq.${cleanSlug},subdomain.eq.${cleanSlug}`)
+      .eq('slug', cleanSlug)
       .limit(1);
 
     if (existing && existing.length > 0) {

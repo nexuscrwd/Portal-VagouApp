@@ -1,7 +1,16 @@
 # 🏛️ ECOSYSTEM_CONTRACT.md — Contrato do Ecossistema Vagou
 
-> **DOCUMENTO MESTRE DE COMPARTILHAMENTO (PAR CLIENTE & PAR EMPRESÁRIO)**  
-> Este arquivo é a fonte única da verdade para a arquitetura, modelos de dados e fluxos de comunicação entre os dois aplicativos que compõem a plataforma **Vagou**. Ambos os projetos compartilham o mesmo banco de dados e devem respeitar estritamente as definições deste contrato.
+> **DOCUMENTO MESTRE DE COMPARTILHAMENTO (A TRÍADE VAGOU: PVAPP, MNVAPP & ADMVAPP)**  
+> Este arquivo é a fonte única da verdade para a arquitetura, modelos de dados e fluxos de comunicação entre os três aplicativos que compõem o ecossistema **Vagou**. Todos os projetos compartilham o mesmo banco de dados relacional (Supabase) e respeitam este contrato.
+
+### 🌐 Repositórios Oficiais no GitHub & Domínios Canônicos da Tríade
+
+| Projeto | Nome de Código | Repositório Oficial no GitHub | Domínio Canônico | Função no Ecossistema |
+| :--- | :--- | :--- | :--- | :--- |
+| **Admin Master** | `adminvapp` (`admvapp`) | `https://github.com/nexuscrwd/admin.vagouapp.git` | `admin.vagouapp.com` (ou `adm.vagouapp.com`) | Centro de comando, governança de usuários, estabelecimentos, RLS e Motor Soberano de Cadastro (`/cadastro`). |
+| **App do Parceiro / PWA** | `vapp` (`mnvapp`) | `https://github.com/nexuscrwd/vagouapp.git` | `meunegocio.vagouapp.com` (e `*.vagouapp.com`) | Aplicativo PWA dos Salões e Prestadores. Gestão de agenda, publicação de vagas e personalização. |
+| **Portal Marketplace** | `pvapp` | `https://github.com/nexuscrwd/Portal-VagouApp.git` | `portal.vagouapp.com` | Marketplace público, radar de vagas imediatas, busca geoespacial (GIS) e agendamento ao consumidor. |
+
 
 ---
 

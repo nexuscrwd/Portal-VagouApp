@@ -2,6 +2,14 @@
 
 O **Vagou** é um aplicativo mobile-first de agendamento de vagas imediatas e horários ociosos em salões de beleza, barbearias, estética e bem-estar.
 
+### 🌐 Repositórios Oficiais no GitHub & Mapeamento da Tríade
+
+| Projeto | Nome de Código | Repositório Oficial no GitHub | Domínio Canônico | Função no Ecossistema |
+| :--- | :--- | :--- | :--- | :--- |
+| **Admin Master** | `adminvapp` (`admvapp`) | `https://github.com/nexuscrwd/admin.vagouapp.git` | `admin.vagouapp.com` (ou `adm.vagouapp.com`) | Centro de comando, governança de usuários, estabelecimentos, RLS e Motor Soberano de Cadastro (`/cadastro`). |
+| **App do Parceiro / PWA** | `vapp` (`mnvapp`) | `https://github.com/nexuscrwd/vagouapp.git` | `meunegocio.vagouapp.com` (e `*.vagouapp.com`) | Aplicativo PWA dos Salões e Prestadores. Gestão de agenda, publicação de vagas e personalização. |
+| **Portal Marketplace** | `pvapp` | `https://github.com/nexuscrwd/Portal-VagouApp.git` | `portal.vagouapp.com` | Marketplace público, radar de vagas imediatas, busca geoespacial (GIS) e agendamento ao consumidor. |
+
 ---
 
 ## 🏗️ 1. Visão Geral da Pilha Tecnológica

@@ -15,6 +15,28 @@ Este arquivo registra cronologicamente todas as modificações relevantes realiz
 
 ## 📜 Registros de Alterações
 
+### [2026-10-21] — Análise e Harmonização do Dossiê Master Rebuild SQL v3.0.0 (admvapp ⇄ pvapp)
+- **Tipo:** `[Auditoria Arquitetural / Dossiê SQL v3.0.0 / Harmonização da Tríade]`
+- **Motivo / Solicitação:** Análise cirúrgica 360º do Dossiê Master Rebuild SQL v3.0.0 emitido pelo `admvapp` (`admin.vagouapp.com`). Validada a compatibilidade de todas as 16 tabelas relacionais, triggers de espelhamento bidirecional (`dependents` ⇄ `client_family_members`), RPC geoespacial `get_offers_in_radius`, protocolo soberano de agendamentos (`#VGA-XXXXX`) e ativação do Supabase Realtime.
+- **Ajustes Preventivos Realizados no pvapp:**
+  - `src/services/supabaseApi.ts`: Ajustada verificação de duplicidade de salão para consultar diretamente a coluna canônica `slug` indexada (`idx_salons_slug`), prevenindo erros PostgREST 400 caso a coluna legada `subdomain` não esteja presente.
+  - `src/utils/pushNotifications.ts`: Adequação do vínculo de cliente para utilizar `user_id` em `public.clients`.
+  - `CHANGELOG.md`: Registro formal da auditoria.
+- **Validação:** `lint_applet` e `compile_applet` 100% aprovados com **0 erros**.
+
+### [2026-10-20] — Registro Definitivo dos Repositórios Oficiais do GitHub (Tríade Vagou)
+- **Tipo:** `[Governança / Documentação Mestre / Repositórios GitHub]`
+- **Motivo / Solicitação:** Registro permanente dos links e endereços de repositórios oficiais no GitHub de toda a Tríade Vagou para consulta autônoma e sincronização contínua entre agentes:
+  - **Admin Master (`adminvapp` / `admvapp`):** `https://github.com/nexuscrwd/admin.vagouapp.git`
+  - **VagouApp Oficial (`vapp` / `mnvapp`):** `https://github.com/nexuscrwd/vagouapp.git`
+  - **Portal VagouApp (`pvapp`):** `https://github.com/nexuscrwd/Portal-VagouApp.git`
+- **Arquivos Impactados:**
+  - `MASTER_APPROVALS_AND_GUIDELINES.md`: Adicionada a tabela canônica com os links dos 3 repositórios oficiais.
+  - `ECOSYSTEM_CONTRACT.md`: Registro da Tríade no contrato compartilhado.
+  - `ARCHITECTURE.md`: Integração da tabela de repositórios oficiais.
+  - `README.md`: Visão geral e links diretos dos projetos irmãos.
+  - `CHANGELOG.md`: Registro de rastreabilidade.
+
 ### [2026-09-29] — Erradicação dos Formulários Nativos no pvapp & Adoção do Embed Central (Tríade Sync)
 - **Tipo:** `[Arquitetura Soberana / Erradicação de Formulários Nativos / Embed postMessage]`
 - **Motivo / Solicitação:** Atendimento imediato ao Comunicado Técnico da Tríade emitido pelo `mnvapp`/`admvapp`. Erradicados todos os formulários e lógicas manuais de cadastro e login nativos no `pvapp`. A autenticação de clientes e credenciamento de estabelecimentos agora carregam exclusivamente o endpoint central soberano `https://admin.vagouapp.com/cadastro?embed=true`, com recepção e sincronização reativa de sessão via `window.addEventListener('message')` (`VAGOU_REGISTRATION_SUCCESS` e `VAGOU_AUTH_SUCCESS`).

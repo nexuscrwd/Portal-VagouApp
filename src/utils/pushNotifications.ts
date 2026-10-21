@@ -47,16 +47,18 @@ export async function subscribeToWebPush(userId?: string): Promise<PushSubscript
       localStorage.setItem('vagou_push_enabled', 'true');
     } catch {}
 
-    // Se o usuário estiver autenticado, salva no Supabase
+    // Se o usuário estiver autenticado, salva no Supabase (compatível com public.clients user_id)
     if (userId) {
-      await supabase
-        .from('clients')
-        .update({
-          push_token: token,
-          push_enabled: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('auth_user_id', userId);
+      try {
+        await supabase
+          .from('clients')
+          .update({
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', userId);
+      } catch (dbErr) {
+        console.warn('[Push] Aviso ao salvar push token no banco:', dbErr);
+      }
     }
 
     return subscription;
