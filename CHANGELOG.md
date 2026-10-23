@@ -15,6 +15,16 @@ Este arquivo registra cronologicamente todas as modificações relevantes realiz
 
 ## 📜 Registros de Alterações
 
+### [2026-10-21] — Homologação do Boletim Técnico BOL-018: Flexibilização da Obrigatoriedade de CPF
+- **Tipo:** `[Boletim Técnico / BOL-018 / CPF Opcional / Sincronização da Tríade]`
+- **Origem & Destinatários:** `admvapp` ➔ `mnvapp` & `pvapp`
+- **Motivo & Resumo da Diretriz:** Em conformidade com o 7º Mandamento da Tríade, o `pvapp` acusa o recebimento e homologa a revogação da obrigatoriedade de CPF para novos cadastros de usuários e parceiros no ecossistema Vagou.
+- **Impacto no pvapp:**
+  - Como o `pvapp` já havia erradicado os formulários nativos e adota a arquitetura de **Embed Soberano** (`https://admin.vagouapp.com/cadastro?embed=true`), a flexibilização do campo ("CPF (Opcional)") no `admvapp` reflete de forma automática e imediata em todos os modais de cadastro e login (`VagouAuthModal.tsx` e `RegisterSalonModal.tsx`).
+  - O modal de dependentes (`AddFamilyMemberModal.tsx`) e os tipos do app já operam com zero exigência de CPF.
+  - Conformidade plena com valores nulos no banco Supabase (`clients.cpf`, `salons.owner_cpf`, `salons.document_number`).
+- **Validação:** `lint_applet` e `compile_applet` 100% aprovados com **0 erros**.
+
 ### [2026-10-21] — Análise e Harmonização do Dossiê Master Rebuild SQL v3.0.0 (admvapp ⇄ pvapp)
 - **Tipo:** `[Auditoria Arquitetural / Dossiê SQL v3.0.0 / Harmonização da Tríade]`
 - **Motivo / Solicitação:** Análise cirúrgica 360º do Dossiê Master Rebuild SQL v3.0.0 emitido pelo `admvapp` (`admin.vagouapp.com`). Validada a compatibilidade de todas as 16 tabelas relacionais, triggers de espelhamento bidirecional (`dependents` ⇄ `client_family_members`), RPC geoespacial `get_offers_in_radius`, protocolo soberano de agendamentos (`#VGA-XXXXX`) e ativação do Supabase Realtime.
